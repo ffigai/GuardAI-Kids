@@ -21,7 +21,6 @@ The system uses YouTube metadata and transcripts when available, then explains w
 
 ### Required
 
-- Windows with PowerShell
 - Python `3.12`
 - A YouTube Data API key for live URL analysis
 - The dataset files:
@@ -55,43 +54,37 @@ Your Excel files must contain these columns:
 
 ### 1. Install Python 3.12
 
-Use one of these:
+Install Python `3.12` using your system package manager or from:
 
-```powershell
-winget install Python.Python.3.12
-```
-
-Or download it from:
-
-`https://www.python.org/downloads/windows/`
-
-During installation, enable:
-
-- `Add python.exe to PATH`
+`https://www.python.org/downloads/`
 
 ### 2. Open The Project Folder
 
-```powershell
-cd "c:\Users\ffigueroa\Desktop\AL_KSAIM_9\ETP\Github\ETP"
+```bash
+cd path/to/GuardAI-Kids
 ```
 
 ### 3. Create A Virtual Environment
 
-```powershell
-py -3.12 -m venv .venv
-.\.venv\Scripts\Activate.ps1
+```bash
+python -m venv .venv
+source .venv/bin/activate
 python --version
 ```
 
 You should see Python `3.12.x`.
 
-If PowerShell blocks activation, run:
+On Windows PowerShell, activate the environment with:
 
 ```powershell
-Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+.\.venv\Scripts\Activate.ps1
 ```
 
-Then activate the virtual environment again.
+On Command Prompt, use:
+
+```cmd
+.venv\Scripts\activate.bat
+```
 
 ### 4. Install PyTorch
 
@@ -142,9 +135,9 @@ Place these files in the `data/` folder:
 
 Or override the paths with environment variables:
 
-```powershell
-$env:ETP_HARMFUL_XLSX="C:\path\to\Harmful.xlsx"
-$env:ETP_HARMLESS_XLSX="C:\path\to\Harmless.xlsx"
+```bash
+export ETP_HARMFUL_XLSX="/path/to/Harmful.xlsx"
+export ETP_HARMLESS_XLSX="/path/to/Harmless.xlsx"
 ```
 
 ### 7. Train The System
@@ -163,19 +156,17 @@ You only need to retrain when you want to rebuild the model.
 
 ### 8. Set The YouTube API Key
 
-For the current PowerShell session:
+For the current shell session:
+
+```bash
+export YOUTUBE_API_KEY="your_api_key_here"
+```
+
+On Windows PowerShell, use:
 
 ```powershell
 $env:YOUTUBE_API_KEY="your_api_key_here"
 ```
-
-To save it for future sessions:
-
-```powershell
-[System.Environment]::SetEnvironmentVariable("YOUTUBE_API_KEY","your_api_key_here","User")
-```
-
-Then reopen PowerShell.
 
 ## How To Use The System
 
@@ -212,7 +203,7 @@ Paste a YouTube URL into the page to get:
 
 ### Python Not Found
 
-If `python` does not resolve but `py` does, use `py -3.12` to create the environment and then use the virtual environment interpreter directly:
+If `python` does not resolve but a versioned launcher does, create the environment with that launcher and then use the virtual environment interpreter directly.
 
 ```powershell
 .\.venv\Scripts\python.exe main.py train

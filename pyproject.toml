@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "guardaikids"
+version = "0.1.0"
+description = "Age-aware YouTube content safety analyzer"
+requires-python = ">=3.12"
+
+[project.scripts]
+guardaikids = "guardaikids.main:main"
+guardaikids-web = "guardaikids.web_interface:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

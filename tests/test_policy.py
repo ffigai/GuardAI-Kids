@@ -3,7 +3,7 @@ import unittest
 import numpy as np
 import pandas as pd
 
-from etp.policy import evaluate_policy
+from guardaikids.policy import build_decision_dataframe, evaluate_policy
 
 
 class PolicyEvaluationTests(unittest.TestCase):
@@ -22,6 +22,15 @@ class PolicyEvaluationTests(unittest.TestCase):
         self.assertAlmostEqual(metrics["false_allow_rate"], 1 / 3)
         self.assertAlmostEqual(metrics["block_recall"], 1 / 3)
         self.assertAlmostEqual(metrics["protection_precision"], 1.0)
+
+    def test_image_mode_uses_more_conservative_warn_thresholds(self):
+        probs = np.array([[0.11, 0.11, 0.11, 0.11]])
+
+        text_decisions = build_decision_dataframe(probs, mode="text")
+        image_decisions = build_decision_dataframe(probs, mode="image")
+
+        self.assertEqual(text_decisions.loc[0, "0_4"], "Warn")
+        self.assertEqual(image_decisions.loc[0, "0_4"], "Allow")
 
 
 if __name__ == "__main__":

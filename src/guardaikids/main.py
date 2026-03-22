@@ -1,4 +1,4 @@
-"""CLI entrypoint for training the ETP system and analyzing YouTube URLs."""
+"""CLI entrypoint for training the GuardAI Kids system and analyzing YouTube URLs."""
 
 from __future__ import annotations
 
@@ -7,13 +7,18 @@ import json
 import os
 from pathlib import Path
 
-from etp.config import AGE_GROUPS
-from etp.service import analyze_youtube_url, resolve_artifact_dir, train_and_save_system
+from guardaikids.config import AGE_GROUPS, IMAGE_ANALYSIS_MODEL, MODE, XAI_METHOD, default_data_dir
+from guardaikids.service import analyze_youtube_url, resolve_artifact_dir, train_and_save_system
+
+VALID_MODES = ("text", "image", "multimodal")
+VALID_IMAGE_MODELS = ("clip",)
+VALID_XAI_METHODS = ("gradient_tokens",)
 
 
 def resolve_data_paths() -> tuple[Path, Path]:
-    harmful = Path(os.environ.get("ETP_HARMFUL_XLSX", Path("data") / "Harmful.xlsx"))
-    harmless = Path(os.environ.get("ETP_HARMLESS_XLSX", Path("data") / "Harmless.xlsx"))
+    data_dir = default_data_dir()
+    harmful = Path(os.environ.get("ETP_HARMFUL_XLSX", data_dir / "Harmful.xlsx"))
+    harmless = Path(os.environ.get("ETP_HARMLESS_XLSX", data_dir / "Harmless.xlsx"))
     return harmful, harmless
 
 
@@ -27,11 +32,41 @@ def build_parser() -> argparse.ArgumentParser:
     train_parser.add_argument("--harmful", type=Path, help="Path to Harmful.xlsx")
     train_parser.add_argument("--harmless", type=Path, help="Path to Harmless.xlsx")
     train_parser.add_argument("--artifact-dir", type=Path, help="Directory to store trained artifacts")
+    train_parser.add_argument(
+        "--mode",
+        choices=VALID_MODES,
+        help=f"Override config mode for this training run. Defaults to config MODE ({MODE}).",
+    )
+    train_parser.add_argument(
+        "--image-model",
+        choices=VALID_IMAGE_MODELS,
+        help=f"Override config image analysis model for this run. Defaults to {IMAGE_ANALYSIS_MODEL}.",
+    )
+    train_parser.add_argument(
+        "--xai-method",
+        choices=VALID_XAI_METHODS,
+        help=f"Override config XAI method for this run. Defaults to {XAI_METHOD}.",
+    )
 
     analyze_parser = subparsers.add_parser("analyze", help="Analyze a YouTube URL using saved artifacts.")
     analyze_parser.add_argument("--url", required=True, help="YouTube URL to analyze")
     analyze_parser.add_argument("--artifact-dir", type=Path, help="Directory containing trained artifacts")
     analyze_parser.add_argument("--api-key", help="YouTube API key; falls back to YOUTUBE_API_KEY")
+    analyze_parser.add_argument(
+        "--mode",
+        choices=VALID_MODES,
+        help=f"Override config mode for this analysis run. Defaults to config MODE ({MODE}).",
+    )
+    analyze_parser.add_argument(
+        "--image-model",
+        choices=VALID_IMAGE_MODELS,
+        help=f"Override config image analysis model for this run. Defaults to {IMAGE_ANALYSIS_MODEL}.",
+    )
+    analyze_parser.add_argument(
+        "--xai-method",
+        choices=VALID_XAI_METHODS,
+        help=f"Override config XAI method for this run. Defaults to {XAI_METHOD}.",
+    )
     analyze_parser.add_argument(
         "--json",
         action="store_true",
@@ -72,12 +107,26 @@ def main() -> None:
             harmful_path = args.harmful
         if args.harmless:
             harmless_path = args.harmless
-        results, artifact_dir = train_and_save_system(harmful_path, harmless_path, args.artifact_dir)
+        results, artifact_dir = train_and_save_system(
+            harmful_path,
+            harmless_path,
+            args.artifact_dir,
+            mode=args.mode,
+            image_analysis_model=args.image_model,
+            xai_method=args.xai_method,
+        )
         print_training_summary(results, artifact_dir)
         return
 
     api_key = args.api_key or os.environ.get("YOUTUBE_API_KEY")
-    result = analyze_youtube_url(args.url, api_key, args.artifact_dir or resolve_artifact_dir())
+    result = analyze_youtube_url(
+        args.url,
+        api_key,
+        args.artifact_dir or resolve_artifact_dir(mode=args.mode),
+        mode=args.mode,
+        image_analysis_model=args.image_model,
+        xai_method=args.xai_method,
+    )
     if args.json:
         print(json.dumps(result, indent=2))
     else:

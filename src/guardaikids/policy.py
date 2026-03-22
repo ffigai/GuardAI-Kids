@@ -3,11 +3,11 @@
 import numpy as np
 import pandas as pd
 
-from etp.config import DEFAULT_THRESHOLDS, LABELS_ORDER
+from guardaikids.config import LABELS_ORDER, MODE, get_default_thresholds
 
 
-def rule_based_decision(probs_row, age_group: str, thresholds=None) -> str:
-    threshold_map = thresholds or DEFAULT_THRESHOLDS
+def rule_based_decision(probs_row, age_group: str, thresholds=None, mode: str | None = None) -> str:
+    threshold_map = thresholds or get_default_thresholds(mode)
     age_thresholds = threshold_map[age_group]
 
     for index, label in enumerate(LABELS_ORDER):
@@ -21,16 +21,16 @@ def rule_based_decision(probs_row, age_group: str, thresholds=None) -> str:
     return "Allow"
 
 
-def build_decision_dataframe(probs: np.ndarray, thresholds=None) -> pd.DataFrame:
-    threshold_map = thresholds or DEFAULT_THRESHOLDS
+def build_decision_dataframe(probs: np.ndarray, thresholds=None, mode: str = MODE) -> pd.DataFrame:
+    threshold_map = thresholds or get_default_thresholds(mode)
     decision_df = pd.DataFrame()
     for age_group in threshold_map:
-        decision_df[age_group] = [rule_based_decision(row, age_group, threshold_map) for row in probs]
+        decision_df[age_group] = [rule_based_decision(row, age_group, threshold_map, mode=mode) for row in probs]
     return decision_df
 
 
-def get_policy_decision(probs_row, age_group: str, thresholds=None) -> dict[str, object]:
-    threshold_map = thresholds or DEFAULT_THRESHOLDS
+def get_policy_decision(probs_row, age_group: str, thresholds=None, mode: str = MODE) -> dict[str, object]:
+    threshold_map = thresholds or get_default_thresholds(mode)
     age_thresholds = threshold_map[age_group]
 
     for index, label in enumerate(LABELS_ORDER):

@@ -5,3 +5,5 @@ __pycache__/
 results/
 artifacts/
 data/*.xlsx
+data/thumbnails/
+data/image_features/

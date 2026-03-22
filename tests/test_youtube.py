@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
 
-from etp.youtube import build_model_input, build_youtube_client, extract_video_id
+from guardaikids.youtube import build_model_input, build_youtube_client, extract_video_id
 
 
 class YouTubeHelperTests(unittest.TestCase):
@@ -13,7 +13,7 @@ class YouTubeHelperTests(unittest.TestCase):
         self.assertEqual(build_model_input(metadata), "T D X")
 
     def test_build_youtube_client_surfaces_optional_dependency_message(self):
-        with patch("etp.youtube._import_youtube_dependencies", side_effect=ImportError("missing optional deps")):
+        with patch("guardaikids.youtube._import_youtube_dependencies", side_effect=ImportError("missing optional deps")):
             with self.assertRaisesRegex(ImportError, "missing optional deps"):
                 build_youtube_client("demo-key")
 

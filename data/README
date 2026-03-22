@@ -1,0 +1,29 @@
+README
+--------
+
+This project now uses the MetaHarm-based Excel inputs only.
+
+Expected files in this directory:
+1. `Harmful.xlsx`
+2. `Harmless.xlsx`
+
+Required columns:
+1. `harm_cat`
+2. `title`
+3. `description`
+4. `transcript`
+
+The training pipeline reads those two workbooks directly and does not depend on any JSON dataset conversion step.
+
+Generated dataset-prep outputs:
+1. `Harmful_with_thumbnails.xlsx`
+2. `Harmless_with_thumbnails.xlsx`
+
+These enriched workbooks include:
+1. `thumbnail_filename`
+2. `thumbnail_path`
+3. `thumbnail_url`
+4. `thumbnail_status`
+5. `thumbnail_harm_cat`
+
+`thumbnail_harm_cat` is copied from `harm_cat` during thumbnail export so image-mode experiments can later be upgraded to use thumbnail-specific annotations.

@@ -2,9 +2,9 @@
 
 import re
 
-from etp.config import LABELS_ORDER
-from etp.explainability import explain_video
-from etp.modeling import predict_video_text
+from guardaikids.config import LABELS_ORDER
+from guardaikids.explainability import explain_video
+from guardaikids.modeling import predict_video_text
 
 
 def _import_youtube_dependencies():
@@ -47,6 +47,7 @@ def fetch_youtube_metadata(url: str, youtube_client) -> dict[str, str] | None:
         return None
 
     snippet = response["items"][0]["snippet"]
+    thumbnails = snippet.get("thumbnails", {})
     transcript_text = ""
     try:
         transcript = transcript_api.get_transcript(video_id)
@@ -60,6 +61,13 @@ def fetch_youtube_metadata(url: str, youtube_client) -> dict[str, str] | None:
         "description": snippet.get("description", ""),
         "channel": snippet.get("channelTitle", ""),
         "published_at": snippet.get("publishedAt", ""),
+        "thumbnail_url": (
+            thumbnails.get("maxres", {}).get("url")
+            or thumbnails.get("standard", {}).get("url")
+            or thumbnails.get("high", {}).get("url")
+            or thumbnails.get("medium", {}).get("url")
+            or thumbnails.get("default", {}).get("url", "")
+        ),
         "transcript": transcript_text,
     }
 
@@ -72,6 +80,8 @@ def analyze_youtube_video(url: str, age_group: str, model, tokenizer, youtube_cl
     metadata = fetch_youtube_metadata(url, youtube_client)
     if metadata is None:
         return {"error": "Video not found"}
+    if getattr(model, "mode", "text") != "text":
+        return {"error": "Image and multimodal inference require precomputed image features."}
 
     text = build_model_input(metadata)
     probabilities = predict_video_text(model, tokenizer, text)

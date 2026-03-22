@@ -2,13 +2,15 @@
 
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 from datasets import Dataset
 from sklearn.model_selection import train_test_split
 
-from etp.config import TARGET_LABELS
+from guardaikids.config import IMAGE_FEATURE_DIM, MODE, TARGET_LABELS, default_image_feature_dir
 
-REQUIRED_SOURCE_COLUMNS = {"harm_cat", "title", "description", "transcript"}
+REQUIRED_SOURCE_COLUMNS = {"video_id", "harm_cat", "title", "description", "transcript"}
+THUMBNAIL_LABEL_COLUMN = "thumbnail_harm_cat"
 
 
 def validate_data_file(path: str | Path) -> Path:
@@ -40,13 +42,52 @@ def encode_labels(value: str, target_labels: list[str] | None = None) -> list[st
     return [item for item in categories if item in labels]
 
 
-def prepare_model_dataframe(df: pd.DataFrame, target_labels: list[str] | None = None) -> pd.DataFrame:
+def _build_missing_image_features(image_feature_dim: int = IMAGE_FEATURE_DIM) -> np.ndarray:
+    missing = np.zeros(image_feature_dim, dtype=np.float32)
+    missing[-1] = 1.0
+    return missing
+
+
+def load_image_features(
+    video_id: str,
+    image_feature_dir: str | Path | None = None,
+    image_feature_dim: int = IMAGE_FEATURE_DIM,
+) -> list[float]:
+    feature_dir = Path(image_feature_dir) if image_feature_dir else default_image_feature_dir()
+    feature_path = feature_dir / f"{video_id}.npy"
+    missing = _build_missing_image_features(image_feature_dim)
+    if not feature_path.exists():
+        return missing.tolist()
+
+    vector = np.load(feature_path)
+    if vector.shape != (image_feature_dim,):
+        return missing.tolist()
+    if not np.isfinite(vector).all():
+        return missing.tolist()
+    return vector.astype(np.float32).tolist()
+
+
+def prepare_model_dataframe(
+    df: pd.DataFrame,
+    target_labels: list[str] | None = None,
+    mode: str = MODE,
+) -> pd.DataFrame:
     labels = target_labels or TARGET_LABELS
     prepared = df.copy()
     prepared["harm_cat"] = prepared["harm_cat"].fillna("")
-    prepared["filtered_categories"] = prepared["harm_cat"].apply(lambda row: encode_labels(row, labels))
+    label_series = prepared["harm_cat"]
+    label_source = pd.Series("video", index=prepared.index)
+    if mode == "image" and THUMBNAIL_LABEL_COLUMN in prepared.columns:
+        thumbnail_labels = prepared[THUMBNAIL_LABEL_COLUMN].fillna("").astype(str)
+        use_thumbnail_labels = thumbnail_labels.str.strip() != ""
+        label_series = label_series.astype(str).copy()
+        label_series.loc[use_thumbnail_labels] = thumbnail_labels.loc[use_thumbnail_labels]
+        label_source.loc[use_thumbnail_labels] = "thumbnail"
+
+    prepared["label_source"] = label_source
+    prepared["filtered_categories"] = label_series.apply(lambda row: encode_labels(row, labels))
     prepared = prepared[
-        (prepared["harm_cat"] == "") | (prepared["filtered_categories"].apply(len) > 0)
+        (label_series.astype(str) == "") | (prepared["filtered_categories"].apply(len) > 0)
     ].copy()
 
     for label in labels:
@@ -60,7 +101,8 @@ def prepare_model_dataframe(df: pd.DataFrame, target_labels: list[str] | None = 
         .str.strip()
     )
 
-    model_df = prepared[["text"] + labels].copy()
+    model_df = prepared[["video_id", "text", "label_source"] + labels].copy()
+    model_df["video_id"] = model_df["video_id"].astype(str)
     model_df["text"] = model_df["text"].astype(str)
     for label in labels:
         model_df[label] = model_df[label].astype(int)
@@ -98,4 +140,25 @@ def split_train_validation(
 
 
 def to_hf_dataset(df: pd.DataFrame) -> Dataset:
-    return Dataset.from_pandas(df[["text", "labels"]].copy(), preserve_index=False)
+    return Dataset.from_pandas(df.copy(), preserve_index=False)
+
+
+def prepare_dataset_inputs(
+    dataset: Dataset,
+    mode: str = MODE,
+    image_feature_dir: str | Path | None = None,
+) -> Dataset:
+    if mode not in {"text", "image", "multimodal"}:
+        raise ValueError(f"Unsupported mode: {mode}")
+
+    prepared = dataset
+    if mode in {"image", "multimodal"}:
+        prepared = prepared.map(
+            lambda row: {
+                "image_features": load_image_features(
+                    row["video_id"],
+                    image_feature_dir=image_feature_dir,
+                )
+            }
+        )
+    return prepared

@@ -5,16 +5,16 @@ from pathlib import Path
 
 import numpy as np
 
-from etp.config import LABELS_ORDER, MODEL_NAME
-from etp.data import load_raw_data, prepare_model_dataframe, split_train_validation, to_hf_dataset
-from etp.modeling import (
+from guardaikids.config import IMAGE_FEATURE_DIM, LABELS_ORDER, MODE, MODEL_NAME, get_default_thresholds
+from guardaikids.data import load_raw_data, prepare_model_dataframe, split_train_validation, to_hf_dataset
+from guardaikids.modeling import (
     apply_thresholds,
     collect_validation_outputs,
     optimize_thresholds,
     summarize_validation_metrics,
     train_multilabel_classifier,
 )
-from etp.policy import build_decision_dataframe, evaluate_policy, evaluate_protection
+from guardaikids.policy import build_decision_dataframe, evaluate_policy, evaluate_protection
 
 
 def _to_jsonable(value):
@@ -29,12 +29,35 @@ def _to_jsonable(value):
     return value
 
 
-def run_training_workflow(harmful_path: str | Path, harmless_path: str | Path) -> dict[str, object]:
+def save_validation_predictions(results: dict[str, object], artifact_dir: str | Path, mode: str = MODE) -> None:
+    resolved_dir = Path(artifact_dir)
+    resolved_dir.mkdir(parents=True, exist_ok=True)
+    outputs = results["validation_outputs"]
+    val_df = results["val_df"]
+    payload = {
+        "mode": mode,
+        "label_order": LABELS_ORDER,
+        "video_ids": val_df["video_id"].tolist() if "video_id" in val_df.columns else [],
+        "texts": val_df["text"].tolist() if "text" in val_df.columns else [],
+        "labels": outputs["labels"].tolist(),
+        "logits": outputs["logits"].tolist(),
+        "predictions": outputs["probs"].tolist(),
+    }
+    output_path = resolved_dir / f"predictions_{mode}.json"
+    with output_path.open("w", encoding="utf-8") as handle:
+        json.dump(_to_jsonable(payload), handle, indent=2)
+
+
+def run_training_workflow(
+    harmful_path: str | Path,
+    harmless_path: str | Path,
+    mode: str = MODE,
+) -> dict[str, object]:
     raw_df = load_raw_data(harmful_path, harmless_path)
-    model_df = prepare_model_dataframe(raw_df, LABELS_ORDER)
+    model_df = prepare_model_dataframe(raw_df, LABELS_ORDER, mode=mode)
     train_df, val_df = split_train_validation(model_df, LABELS_ORDER)
 
-    artifacts = train_multilabel_classifier(to_hf_dataset(train_df), to_hf_dataset(val_df))
+    artifacts = train_multilabel_classifier(to_hf_dataset(train_df), to_hf_dataset(val_df), mode=mode)
     outputs = collect_validation_outputs(artifacts.trainer, artifacts.val_dataset)
 
     default_summary = summarize_validation_metrics(outputs["labels"], outputs["probs"], outputs["preds"])
@@ -43,7 +66,7 @@ def run_training_workflow(harmful_path: str | Path, harmless_path: str | Path) -
     tuned_predictions = apply_thresholds(outputs["probs"], f2_thresholds)
     tuned_summary = summarize_validation_metrics(outputs["labels"], outputs["probs"], tuned_predictions)
 
-    decision_df = build_decision_dataframe(outputs["probs"])
+    decision_df = build_decision_dataframe(outputs["probs"], mode=mode)
     policy_metrics = evaluate_policy(decision_df, outputs["labels"])
     protection_metrics = evaluate_protection(decision_df, outputs["labels"])
 
@@ -64,7 +87,13 @@ def run_training_workflow(harmful_path: str | Path, harmless_path: str | Path) -
     }
 
 
-def save_training_artifacts(results: dict[str, object], artifact_dir: str | Path) -> None:
+def save_training_artifacts(
+    results: dict[str, object],
+    artifact_dir: str | Path,
+    mode: str = MODE,
+    image_analysis_model: str | None = None,
+    xai_method: str | None = None,
+) -> None:
     resolved_dir = Path(artifact_dir)
     model_dir = resolved_dir / "model"
     tokenizer_dir = resolved_dir / "tokenizer"
@@ -78,10 +107,15 @@ def save_training_artifacts(results: dict[str, object], artifact_dir: str | Path
 
     metadata = {
         "model_name": MODEL_NAME,
+        "mode": mode,
+        "image_feature_dim": IMAGE_FEATURE_DIM,
+        "image_analysis_model": image_analysis_model,
+        "xai_method": xai_method,
         "train_size": int(len(results["train_df"])),
         "validation_size": int(len(results["val_df"])),
         "f1_thresholds": results["f1_thresholds"],
         "f2_thresholds": results["f2_thresholds"],
+        "policy_thresholds": get_default_thresholds(mode),
         "policy_metrics": results["policy_metrics"],
         "protection_metrics": results["protection_metrics"],
         "roc_auc": results["default_summary"]["roc_auc"],
@@ -89,3 +123,4 @@ def save_training_artifacts(results: dict[str, object], artifact_dir: str | Path
     }
     with (resolved_dir / "metadata.json").open("w", encoding="utf-8") as handle:
         json.dump(_to_jsonable(metadata), handle, indent=2)
+    save_validation_predictions(results, resolved_dir, mode=mode)

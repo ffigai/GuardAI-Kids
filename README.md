@@ -1,4 +1,5 @@
 # GuardAI Kids
+<img width="8192" height="2367" alt="hi level diagram-2026-03-23-004627" src="https://github.com/user-attachments/assets/df0fe83f-5c20-4390-8190-52e9b718bc36" />
 
 GuardAI Kids is an age-aware YouTube content safety analyzer. It reviews a YouTube video and recommends `ALLOW`, `WARN`, or `BLOCK` for three child age groups:
 

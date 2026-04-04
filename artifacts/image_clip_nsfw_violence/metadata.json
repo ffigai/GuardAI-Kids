@@ -1,0 +1,117 @@
+{
+  "model_name": "distilroberta-base",
+  "mode": "image",
+  "image_feature_dim": 537,
+  "image_analysis_model": "clip_nsfw_violence",
+  "xai_method": "gradient_tokens",
+  "train_size": 11068,
+  "validation_size": 2767,
+  "f1_thresholds": {
+    "ADD": 0.5000000000000001,
+    "SXL": 0.7500000000000002,
+    "PH": 0.40000000000000013,
+    "HH": 0.6000000000000002
+  },
+  "f2_thresholds": {
+    "ADD": 0.25000000000000006,
+    "SXL": 0.45000000000000007,
+    "PH": 0.20000000000000004,
+    "HH": 0.30000000000000004
+  },
+  "policy_thresholds": {
+    "0_4": {
+      "ADD": {
+        "warn": 0.22,
+        "block": 0.45
+      },
+      "SXL": {
+        "warn": 0.12,
+        "block": 0.28
+      },
+      "PH": {
+        "warn": 0.18,
+        "block": 0.35
+      },
+      "HH": {
+        "warn": 0.14,
+        "block": 0.3
+      }
+    },
+    "5_8": {
+      "ADD": {
+        "warn": 0.26,
+        "block": 0.52
+      },
+      "SXL": {
+        "warn": 0.16,
+        "block": 0.34
+      },
+      "PH": {
+        "warn": 0.22,
+        "block": 0.4
+      },
+      "HH": {
+        "warn": 0.18,
+        "block": 0.36
+      }
+    },
+    "9_12": {
+      "ADD": {
+        "warn": 0.3,
+        "block": 0.58
+      },
+      "SXL": {
+        "warn": 0.2,
+        "block": 0.4
+      },
+      "PH": {
+        "warn": 0.26,
+        "block": 0.46
+      },
+      "HH": {
+        "warn": 0.22,
+        "block": 0.42
+      }
+    }
+  },
+  "policy_metrics": {
+    "0_4": {
+      "block_precision": 0.7725764835974935,
+      "block_recall": 0.9900803023145961,
+      "false_block_rate": 0.9951612903225806,
+      "false_allow_rate": 0.0004723665564478035,
+      "protection_precision": 0.7658342381469417
+    },
+    "5_8": {
+      "block_precision": 0.7783177570093458,
+      "block_recall": 0.9834671705243269,
+      "false_block_rate": 0.9932998324958124,
+      "false_allow_rate": 0.000944733112895607,
+      "protection_precision": 0.7660268018833756
+    },
+    "9_12": {
+      "block_precision": 0.78300803673938,
+      "block_recall": 0.9664619744922059,
+      "false_block_rate": 0.9725557461406518,
+      "false_allow_rate": 0.0023618327822390174,
+      "protection_precision": 0.7691187181354697
+    }
+  },
+  "protection_metrics": {
+    "0_4": 0.9995276334435522,
+    "5_8": 0.9990552668871044,
+    "9_12": 0.997638167217761
+  },
+  "roc_auc": {
+    "ADD": 0.9280516279204257,
+    "SXL": 0.8540417985498463,
+    "PH": 0.7868868650323332,
+    "HH": 0.8165739337011393
+  },
+  "positives": {
+    "ADD": 655,
+    "SXL": 372,
+    "PH": 697,
+    "HH": 587
+  }
+}

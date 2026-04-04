@@ -146,8 +146,8 @@ def summarize_image_attributes(image_features, top_k: int = 3) -> list[dict[str,
     ]
 
 
-def summarize_risk_categories(probs_row, age_group: str, mode: str, top_k: int = 3) -> list[dict[str, object]]:
-    thresholds = get_default_thresholds(mode)
+def summarize_risk_categories(probs_row, age_group: str, mode: str, thresholds=None, top_k: int = 3) -> list[dict[str, object]]:
+    thresholds = thresholds or get_default_thresholds(mode)
     warned = []
     for index, label in enumerate(LABELS_ORDER):
         probability = float(probs_row[index])
@@ -183,11 +183,12 @@ def should_surface_supporting_cues(
     age_group: str,
     mode: str,
     decision: str,
+    thresholds=None,
     margin: float = 0.03,
 ) -> bool:
     if decision != "Allow":
         return True
-    thresholds = get_default_thresholds(mode)
+    thresholds = thresholds or get_default_thresholds(mode)
     for index, label in enumerate(LABELS_ORDER):
         probability = float(probs_row[index])
         warn_threshold = float(thresholds[age_group][label]["warn"])
@@ -274,7 +275,7 @@ def explain_video(
         thresholds=thresholds,
         mode=mode,
     )
-    risk_categories = summarize_risk_categories(probs_row, age_group, mode)
+    risk_categories = summarize_risk_categories(probs_row, age_group, mode, thresholds=thresholds)
     image_highlights = summarize_image_attributes(image_features)
 
     top_tokens = []
@@ -296,6 +297,7 @@ def explain_video(
         age_group=age_group,
         mode=mode,
         decision=policy_info["decision"],
+        thresholds=thresholds,
     )
     if not show_supporting_cues:
         top_tokens = []

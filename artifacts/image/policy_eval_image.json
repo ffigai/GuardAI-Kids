@@ -1,0 +1,32 @@
+{
+  "mode": "image",
+  "artifact_dir": "artifacts\\image",
+  "policy_metrics": {
+    "0_4": {
+      "block_precision": 0.8873626373626373,
+      "block_recall": 0.4577231931979216,
+      "false_block_rate": 1.0,
+      "false_allow_rate": 0.0,
+      "protection_precision": 0.76508854354897
+    },
+    "5_8": {
+      "block_precision": 0.9664634146341463,
+      "block_recall": 0.14974019839395372,
+      "false_block_rate": 0.2682926829268293,
+      "false_allow_rate": 0.022201228153046763,
+      "protection_precision": 0.7695167286245354
+    },
+    "9_12": {
+      "block_precision": 0.9940828402366864,
+      "block_recall": 0.079357581483231,
+      "false_block_rate": 0.0053475935828877,
+      "false_allow_rate": 0.15210203117619273,
+      "protection_precision": 0.7945993802567508
+    }
+  },
+  "protection_metrics": {
+    "0_4": 1.0,
+    "5_8": 0.9777987718469532,
+    "9_12": 0.8478979688238073
+  }
+}

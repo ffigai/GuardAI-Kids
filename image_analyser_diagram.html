@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>GuardAI Kids — Image Analyzer System Diagram</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <style>
+    body { font-family: sans-serif; background: #f8f9fa; padding: 2rem; }
+    h1 { font-size: 1.4rem; color: #333; margin-bottom: 1.5rem; }
+    .mermaid { background: white; border-radius: 8px; padding: 2rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+  </style>
+</head>
+<body>
+  <h1>GuardAI Kids — Image Preparation &amp; Analyzer Block (clip_nsfw_violence)</h1>
+  <div class="mermaid">
+flowchart LR
+    IMG["🖼️ Thumbnail\nRGB Image"]
+
+    IMG --> CLIP["CLIP\nopenai/clip-vit-base-patch32\n─────────────────\n512-dim embedding\n8 harm sim scores\n5 quality features"]
+    IMG --> NSFW["NSFW Classifier\nMarqo/nsfw-image-detection-384\n─────────────────\nP(nsfw)"]
+    IMG --> VIO["Violence Classifier\njaranohaal/vit-base-violence-detection\n─────────────────\nP(violent)"]
+    IMG --> OCR["OCR + CLIP\neasyocr + CLIP text encoder\n─────────────────\nhas_text flag\n8 OCR harm scores"]
+
+    CLIP & NSFW & VIO & OCR --> VEC["537-dim\nfeature vector\n{video_id}.npy"]
+  </div>
+  <script>mermaid.initialize({ startOnLoad: true, theme: "default" });</script>
+</body>
+</html>

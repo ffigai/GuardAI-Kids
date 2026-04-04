@@ -5,7 +5,7 @@ from pathlib import Path
 
 import numpy as np
 
-from guardaikids.config import IMAGE_FEATURE_DIM, LABELS_ORDER, MODE, MODEL_NAME, get_default_thresholds
+from guardaikids.config import IMAGE_ANALYSIS_MODEL, IMAGE_FEATURE_DIMS, LABELS_ORDER, MODE, MODEL_NAME, get_default_thresholds
 from guardaikids.data import load_raw_data, prepare_model_dataframe, split_train_validation, to_hf_dataset
 from guardaikids.modeling import (
     apply_thresholds,
@@ -52,12 +52,22 @@ def run_training_workflow(
     harmful_path: str | Path,
     harmless_path: str | Path,
     mode: str = MODE,
+    image_analysis_model: str | None = None,
+    image_feature_dir: str | Path | None = None,
 ) -> dict[str, object]:
+    selected_image_model = image_analysis_model or IMAGE_ANALYSIS_MODEL
+    image_feature_dim = IMAGE_FEATURE_DIMS[selected_image_model]
     raw_df = load_raw_data(harmful_path, harmless_path)
     model_df = prepare_model_dataframe(raw_df, LABELS_ORDER, mode=mode)
     train_df, val_df = split_train_validation(model_df, LABELS_ORDER)
 
-    artifacts = train_multilabel_classifier(to_hf_dataset(train_df), to_hf_dataset(val_df), mode=mode)
+    artifacts = train_multilabel_classifier(
+        to_hf_dataset(train_df),
+        to_hf_dataset(val_df),
+        mode=mode,
+        image_feature_dim=image_feature_dim,
+        image_feature_dir=image_feature_dir,
+    )
     outputs = collect_validation_outputs(artifacts.trainer, artifacts.val_dataset)
 
     default_summary = summarize_validation_metrics(outputs["labels"], outputs["probs"], outputs["preds"])
@@ -105,11 +115,12 @@ def save_training_artifacts(
     artifacts.model.save_pretrained(model_dir)
     artifacts.tokenizer.save_pretrained(tokenizer_dir)
 
+    selected_image_model = image_analysis_model or IMAGE_ANALYSIS_MODEL
     metadata = {
         "model_name": MODEL_NAME,
         "mode": mode,
-        "image_feature_dim": IMAGE_FEATURE_DIM,
-        "image_analysis_model": image_analysis_model,
+        "image_feature_dim": IMAGE_FEATURE_DIMS[selected_image_model],
+        "image_analysis_model": selected_image_model,
         "xai_method": xai_method,
         "train_size": int(len(results["train_df"])),
         "validation_size": int(len(results["val_df"])),

@@ -11,7 +11,7 @@ from guardaikids.config import AGE_GROUPS, IMAGE_ANALYSIS_MODEL, MODE, XAI_METHO
 from guardaikids.service import analyze_youtube_url, resolve_artifact_dir, train_and_save_system
 
 VALID_MODES = ("text", "image", "multimodal")
-VALID_IMAGE_MODELS = ("clip",)
+VALID_IMAGE_MODELS = ("clip", "clip_ocr", "clip_nsfw_violence")
 VALID_XAI_METHODS = ("gradient_tokens",)
 
 
@@ -38,7 +38,7 @@ def build_parser() -> argparse.ArgumentParser:
         help=f"Override config mode for this training run. Defaults to config MODE ({MODE}).",
     )
     train_parser.add_argument(
-        "--image-model",
+        "--image-analysis-model",
         choices=VALID_IMAGE_MODELS,
         help=f"Override config image analysis model for this run. Defaults to {IMAGE_ANALYSIS_MODEL}.",
     )
@@ -58,7 +58,7 @@ def build_parser() -> argparse.ArgumentParser:
         help=f"Override config mode for this analysis run. Defaults to config MODE ({MODE}).",
     )
     analyze_parser.add_argument(
-        "--image-model",
+        "--image-analysis-model",
         choices=VALID_IMAGE_MODELS,
         help=f"Override config image analysis model for this run. Defaults to {IMAGE_ANALYSIS_MODEL}.",
     )
@@ -112,7 +112,7 @@ def main() -> None:
             harmless_path,
             args.artifact_dir,
             mode=args.mode,
-            image_analysis_model=args.image_model,
+            image_analysis_model=args.image_analysis_model,
             xai_method=args.xai_method,
         )
         print_training_summary(results, artifact_dir)
@@ -124,7 +124,7 @@ def main() -> None:
         api_key,
         args.artifact_dir or resolve_artifact_dir(mode=args.mode),
         mode=args.mode,
-        image_analysis_model=args.image_model,
+        image_analysis_model=args.image_analysis_model,
         xai_method=args.xai_method,
     )
     if args.json:

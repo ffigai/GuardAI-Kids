@@ -6,9 +6,9 @@ TARGET_LABELS = ["ADD", "SXL", "PH", "HH"]
 LABELS_ORDER = TARGET_LABELS.copy()
 AGE_GROUPS = ["0_4", "5_8", "9_12"]
 MODEL_NAME = "distilroberta-base"
-MODE = "image" # "text", "image", or "multimodal"
+MODE = "multimodal" # "text", "image", or "multimodal"
 MAX_LENGTH = 512
-IMAGE_ANALYSIS_MODEL = "clip"    # later: explore other vision models like multihead-content-moderator
+IMAGE_ANALYSIS_MODEL = "clip_nsfw_violence"  # "clip", "clip_ocr", or "clip_nsfw_violence"
 XAI_METHOD = "gradient_tokens"   # later: "integrated_gradients", "occlusion"
 
 IMAGE_SIMILARITY_PROMPTS = [
@@ -28,7 +28,19 @@ IMAGE_QUALITY_FEATURE_NAMES = [
     "colorfulness",
     "detail_score",
 ]
-IMAGE_FEATURE_DIM = 512 + len(IMAGE_SIMILARITY_PROMPTS) + len(IMAGE_QUALITY_FEATURE_NAMES) + 1
+_CLIP_BASE_DIM = 512 + len(IMAGE_SIMILARITY_PROMPTS) + len(IMAGE_QUALITY_FEATURE_NAMES) + 1
+# clip_nsfw_violence layout (after quality features, before missing flag):
+#   +1 NSFW score (Marqo/nsfw-image-detection-384)
+#   +1 violence score (jaranohaal/vit-base-violence-detection)
+#   +1 has_ocr_text flag (gate: 1.0 if text found, else 0.0)
+#   +N OCR harm similarity scores (same N as IMAGE_SIMILARITY_PROMPTS, zeroed when flag=0)
+_CLIP_SPECIALIST_DIM = _CLIP_BASE_DIM + 2 + 1 + len(IMAGE_SIMILARITY_PROMPTS)
+IMAGE_FEATURE_DIMS = {
+    "clip":                 _CLIP_BASE_DIM,
+    "clip_ocr":             _CLIP_BASE_DIM + len(IMAGE_SIMILARITY_PROMPTS) + 1,  # legacy: OCR prompt scores + has_ocr_text flag
+    "clip_nsfw_violence":   _CLIP_SPECIALIST_DIM,
+}
+IMAGE_FEATURE_DIM = IMAGE_FEATURE_DIMS[IMAGE_ANALYSIS_MODEL]
 
 TEXT_THRESHOLDS = {
     "0_4": {
@@ -114,6 +126,13 @@ def default_data_dir() -> Path:
 
 def default_image_feature_dir() -> Path:
     return default_data_dir() / "image_features"
+
+
+def default_image_feature_dir_for_model(model_name: str | None = None) -> Path:
+    name = model_name or IMAGE_ANALYSIS_MODEL
+    if name == "clip":
+        return default_image_feature_dir()
+    return default_data_dir() / f"image_features_{name}"
 
 
 def default_thumbnail_dir() -> Path:

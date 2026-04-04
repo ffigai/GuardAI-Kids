@@ -1,4 +1,6 @@
 accelerate>=1.1.0
+easyocr
+python-dotenv
 datasets
 flask
 google-api-python-client
@@ -6,5 +8,7 @@ matplotlib
 openpyxl
 pandas
 scikit-learn
+tabulate
+timm
 transformers
 youtube-transcript-api

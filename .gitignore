@@ -1,9 +1,39 @@
+# Environment
+.env
 .venv/
 .venv-1/
+
+# Python
 __pycache__/
 *.pyc
+*.egg-info/
+
+# Claude Code memory (personal)
+.claude/
+
+# Training checkpoints and intermediate results
 results/
-artifacts/
+
+# Trained model weights and tokenizer (too large — regenerate by training)
+artifacts/*/model/
+artifacts/*/tokenizer/
+# Stray root-level model/tokenizer from old runs
+artifacts/model/
+artifacts/tokenizer/
+
+# Pip temp dirs that accidentally ended up in artifacts/
+artifacts/pip-*/
+
+# Artifact reports and snapshots — kept in git
+# (do not ignore artifacts/reports/ or artifacts/*/metadata.json)
+
+# Backup directories
+artifacts_backup_*/
+
+# Image feature vectors (.npy files — regenerate with extract_image_features.py)
+data/image_features/
+data/image_features_*/
+
+# Training data and thumbnails
 data/*.xlsx
 data/thumbnails/
-data/image_features/

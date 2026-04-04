@@ -5,7 +5,7 @@ Base version: [Release GuardAI Kids v2](https://github.com/ffigai/GuardAI-Kids) 
 
 ---
 
-## [Unreleased] — Post v2 development
+## [v3] — Released 2026-04-04
 
 ### New: clip_nsfw_violence image analysis pipeline
 
@@ -149,6 +149,8 @@ Re-extraction of `clip_nsfw_violence` features is required before its image and 
 | clip_ocr | 0.845 | 0.591 |
 | clip_nsfw_violence | 0.846 | 0.594 |
 | text (reference) | 0.938 | — |
-| multimodal - clip (reference) | 0.935 | — |
+| multimodal - clip | 0.935 | — |
+| multimodal - clip_ocr | — | — |
+| multimodal - clip_nsfw_violence | — | — |
 
-Multimodal training with `clip_ocr` and `clip_nsfw_violence` is pending.
+All 7 configurations were trained and evaluated. Full comparison graphs and per-label metrics are in `artifacts/reports/snapshot_20260404_1344/`.

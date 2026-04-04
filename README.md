@@ -1,333 +1,151 @@
 # GuardAI Kids
 <img width="8192" height="2367" alt="hi level diagram-2026-03-23-004627" src="https://github.com/user-attachments/assets/df0fe83f-5c20-4390-8190-52e9b718bc36" />
 
-GuardAI Kids is an age-aware YouTube content safety analyzer. It reviews a YouTube video and recommends `ALLOW`, `WARN`, or `BLOCK` for three child age groups:
+GuardAI Kids is an age-aware YouTube content safety analyzer. Given a YouTube URL, it recommends `ALLOW`, `WARN`, or `BLOCK` for three child age groups — `0–4`, `5–8`, and `9–12` — across four harm categories: addictive content (ADD), sexual/explicit material (SXL), physical harm (PH), and hate/harassment (HH).
 
-- `0-4`
-- `5-8`
-- `9-12`
+## How It Works
 
 The system supports three analysis modes:
 
-- `text`
-- `image`
-- `multimodal`
+| Mode | What it uses |
+|---|---|
+| `text` | Video title, description, and transcript |
+| `image` | Thumbnail image features (CLIP + NSFW + violence classifiers) |
+| `multimodal` | Text and image combined via a fusion layer |
 
-It uses YouTube metadata, transcripts, and thumbnail-derived image features when available, then explains why each recommendation was made.
+Each mode runs a trained multi-label classifier and applies an age-aware policy to produce per-age-group recommendations with supporting evidence cues.
 
-## What This Repo Contains
+## Model Performance (Validation Set)
 
-- `src/guardaikids/`: reusable modules for data loading, modeling, policy, explainability, workflow, YouTube integration, CLI, and web UI
-- `scripts/`: dataset preparation, policy reevaluation, report generation, and other utilities
-- `data/`: expected location for `Harmful.xlsx` and `Harmless.xlsx`
-- `artifacts/`: saved trained model, tokenizer, metadata, and predictions
-- `tests/`: lightweight regression tests
+| Model | Mean AUC | Macro F1 |
+|---|---|---|
+| text | 0.938 | — |
+| image — clip | 0.778 | 0.519 |
+| image — clip_ocr | 0.845 | 0.591 |
+| image — clip_nsfw_violence | 0.846 | 0.594 |
+| multimodal — clip | 0.935 | — |
+| multimodal — clip_ocr | — | — |
+| multimodal — clip_nsfw_violence | — | — |
 
-## Updates In This Version
+Full comparison graphs are in `artifacts/reports/`.
 
-Compared with the earlier text-focused version, this repo now includes:
+## Repo Structure
 
-- configurable `text`, `image`, and `multimodal` modes
-- thumbnail download and image-feature extraction scripts
-- separate artifact folders per mode:
-  - `artifacts/text`
-  - `artifacts/image`
-  - `artifacts/multimodal`
-- richer prediction artifacts for reevaluation without retraining
-- policy reevaluation and experiment report scripts
-- a more complete web UI with:
-  - mode selection
-  - thumbnail preview for image-capable modes
-  - basic and detailed views
-  - visual score bars and evidence cues
+- `src/guardaikids/` — all modules: data, modeling, policy, explainability, workflow, YouTube integration, CLI, web UI
+- `scripts/` — dataset preparation, image feature extraction, report generation, results snapshot
+- `data/` — place `Harmful.xlsx` and `Harmless.xlsx` here
+- `artifacts/` — per-configuration metadata, predictions, and evaluation reports (model weights excluded — regenerate by training)
+- `tests/` — lightweight regression tests
 
-## System Requirements
+## Requirements
 
-### Required
+- Python 3.12
+- A YouTube Data API key (for live URL analysis)
+- `data/Harmful.xlsx` and `data/Harmless.xlsx` with columns: `harm_cat`, `title`, `description`, `transcript`, `video_id`
+- NVIDIA GPU recommended for training (CPU works but is slow)
 
-- Python `3.12`
-- A YouTube Data API key for live URL analysis
-- The dataset files:
-  - `data/Harmful.xlsx`
-  - `data/Harmless.xlsx`
+## Setup
 
-### Recommended
-
-- NVIDIA GPU for training
-- CUDA-capable PyTorch build if you want GPU acceleration
-
-Training works on CPU, but it is much slower.
-
-## Dataset Requirements
-
-Your Excel files must contain these columns:
-
-- `harm_cat`
-- `title`
-- `description`
-- `transcript`
-
-The project expects target labels from:
-
-- `ADD`
-- `SXL`
-- `PH`
-- `HH`
-
-Useful additional columns for multimodal experiments:
-
-- `video_id`
-- `thumbnail_harm_cat`
-
-See `data/README` for the dataset notes.
-
-## Step-By-Step Setup
-
-### 1. Install Python 3.12
-
-Install Python `3.12` from:
-
-`https://www.python.org/downloads/`
-
-### 2. Open The Project Folder
-
-```powershell
-cd path\to\GuardAI-Kids
-```
-
-### 3. Create A Virtual Environment
+### 1. Create environment and install
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-python --version
-```
-
-You should see Python `3.12.x`.
-
-### 4. Install PyTorch
-
-CPU only:
-
-```powershell
-python -m pip install --upgrade pip
-python -m pip install torch
-```
-
-NVIDIA GPU example:
-
-```powershell
 python -m pip install --upgrade pip
 python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
-```
-
-### 5. Install Project Dependencies
-
-```powershell
 python -m pip install -r requirements.txt
 python -m pip install -e .
 ```
 
-### 6. Add Your Dataset Files
-
-Place these in `data/`:
-
-- `data/Harmful.xlsx`
-- `data/Harmless.xlsx`
-
-Or override them:
+For CPU-only, replace the torch line with:
 
 ```powershell
-$env:ETP_HARMFUL_XLSX="C:\path\to\Harmful.xlsx"
-$env:ETP_HARMLESS_XLSX="C:\path\to\Harmless.xlsx"
+python -m pip install torch
 ```
 
-### 7. Optional: Prepare Thumbnail Assets For Image And Multimodal Modes
+### 2. Configure environment
 
-Download thumbnails:
+Create a `.env` file in the project root:
 
-```powershell
-$env:PYTHONPATH=(Resolve-Path .\src).Path
-python scripts\fetch_dataset_thumbnails.py
+```
+YOUTUBE_API_KEY=your_api_key_here
 ```
 
-This creates:
+### 3. Place dataset files
 
-- `data/thumbnails/`
-- `data/Harmful_with_thumbnails.xlsx`
-- `data/Harmless_with_thumbnails.xlsx`
-
-Extract image features:
-
-```powershell
-$env:PYTHONPATH=(Resolve-Path .\src).Path
-python scripts\extract_image_features.py
 ```
-
-This creates:
-
-- `data/image_features/`
-- `data/image_features/feature_manifest.json`
-
-### 8. Set The YouTube API Key
-
-```powershell
-$env:YOUTUBE_API_KEY="your_api_key_here"
+data/Harmful.xlsx
+data/Harmless.xlsx
 ```
-
-## How To Run The Project
-
-There are three main stages:
-
-1. train
-2. evaluate
-3. demo in the web UI
 
 ## Training
 
-You can use `MODE` from `src/guardaikids/config.py`, or override it from the CLI.
-
-### Text
+### Text mode
 
 ```powershell
-$env:PYTHONPATH=(Resolve-Path .\src).Path
-python -m guardaikids train --mode text
+python -m guardaikids train --mode text --artifact-dir artifacts/text
 ```
 
-### Image
+### Image modes
 
 ```powershell
-$env:PYTHONPATH=(Resolve-Path .\src).Path
-python -m guardaikids train --mode image
+# Step 1 — extract features (choose one pipeline)
+python scripts/extract_image_features.py --image-analysis-model clip
+python scripts/extract_image_features.py --image-analysis-model clip_ocr
+python scripts/extract_image_features.py --image-analysis-model clip_nsfw_violence
+
+# Step 2 — train
+python -m guardaikids train --mode image --image-analysis-model clip --artifact-dir artifacts/image
+python -m guardaikids train --mode image --image-analysis-model clip_ocr --artifact-dir artifacts/image_clip_ocr
+python -m guardaikids train --mode image --image-analysis-model clip_nsfw_violence --artifact-dir artifacts/image_clip_nsfw_violence
 ```
 
-### Multimodal
+### Multimodal modes
 
 ```powershell
-$env:PYTHONPATH=(Resolve-Path .\src).Path
-python -m guardaikids train --mode multimodal
+python -m guardaikids train --mode multimodal --image-analysis-model clip --artifact-dir artifacts/multimodal
+python -m guardaikids train --mode multimodal --image-analysis-model clip_ocr --artifact-dir artifacts/multimodal_clip_ocr
+python -m guardaikids train --mode multimodal --image-analysis-model clip_nsfw_violence --artifact-dir artifacts/multimodal_clip_nsfw_violence
 ```
-
-Each run writes to its own artifact folder:
-
-- `artifacts/text`
-- `artifacts/image`
-- `artifacts/multimodal`
-
-Each artifact folder contains:
-
-- model files
-- tokenizer files
-- `metadata.json`
-- `predictions_<mode>.json`
 
 ## Evaluation
 
-### Compare the saved results
-
-Look at:
-
-- `artifacts/text/metadata.json`
-- `artifacts/image/metadata.json`
-- `artifacts/multimodal/metadata.json`
-
-Important fields:
-
-- `roc_auc`
-- `policy_metrics`
-- `protection_metrics`
-- `f1_thresholds`
-- `f2_thresholds`
-
-### Reevaluate policy without retraining
-
-If you only change thresholds or policy logic, you do not need to retrain.
-
 ```powershell
-$env:PYTHONPATH=(Resolve-Path .\src).Path
-python scripts\reevaluate_policy_from_predictions.py --artifact-dir .\artifacts\text --mode text
-python scripts\reevaluate_policy_from_predictions.py --artifact-dir .\artifacts\image --mode image
-python scripts\reevaluate_policy_from_predictions.py --artifact-dir .\artifacts\multimodal --mode multimodal
+# Generate 7-way comparison graphs and summary CSV
+python scripts/save_results_snapshot.py
+
+# Generate full experiment report
+python scripts/generate_experiment_report.py
 ```
 
-### Generate experiment tables and plots
+Outputs go to `artifacts/reports/`.
 
-After all three modes are trained:
-
-```powershell
-$env:PYTHONPATH=(Resolve-Path .\src).Path
-python scripts\generate_experiment_report.py
-```
-
-Outputs are written to `artifacts/reports/`.
-
-## Analyze A YouTube URL From The CLI
+## Web UI
 
 ```powershell
-$env:PYTHONPATH=(Resolve-Path .\src).Path
-python -m guardaikids analyze --mode text --url "https://www.youtube.com/watch?v=VIDEO_ID"
-```
-
-Optional JSON output:
-
-```powershell
-python -m guardaikids analyze --mode multimodal --url "https://www.youtube.com/watch?v=VIDEO_ID" --json
-```
-
-## Run The Web UI
-
-```powershell
-$env:PYTHONPATH=(Resolve-Path .\src).Path
 python -m guardaikids.web_interface
 ```
 
-Then open:
+Open `http://127.0.0.1:5000`. Select `text`, `image`, or `multimodal` — image and multimodal use the `clip_nsfw_violence` artifact by default.
 
-`http://127.0.0.1:5000`
+## CLI Analysis
 
-The web UI includes:
-
-- mode selection
-- basic and detailed views
-- thumbnail preview for image-capable modes
-- age-group recommendations
-- evidence summaries
+```powershell
+python -m guardaikids analyze --mode text --url "https://www.youtube.com/watch?v=VIDEO_ID"
+python -m guardaikids analyze --mode multimodal --url "https://www.youtube.com/watch?v=VIDEO_ID" --json
+```
 
 ## Troubleshooting
 
-### `ModuleNotFoundError: No module named 'guardaikids'`
+**First run downloads models from HuggingFace** — expected for CLIP, NSFW classifier, and violence classifier on first image/multimodal run.
 
-Use:
-
-```powershell
-$env:PYTHONPATH=(Resolve-Path .\src).Path
-python -m guardaikids train --mode text
-```
-
-### Training Is Very Slow
-
-Check whether PyTorch sees your GPU:
+**GPU not detected:**
 
 ```powershell
 python -c "import torch; print(torch.cuda.is_available())"
 ```
 
-### First Hugging Face / CLIP Run Downloads Models
-
-That is expected on the first run of:
-
-- training
-- image feature extraction
-- image or multimodal live analysis
-
-### Web UI Says `YOUTUBE_API_KEY is required`
-
-Set the key first:
-
-```powershell
-$env:YOUTUBE_API_KEY="your_api_key_here"
-python -m guardaikids.web_interface
-```
+**Web UI says `YOUTUBE_API_KEY is required`** — check that your `.env` file is in the project root and contains `YOUTUBE_API_KEY=...`.
 
 ## Running Tests
 
@@ -335,16 +153,8 @@ python -m guardaikids.web_interface
 python -m unittest discover -s tests -v
 ```
 
-If needed:
-
-```powershell
-$env:PYTHONPATH=(Resolve-Path .\src).Path
-python -m unittest discover -s tests -v
-```
-
 ## Notes
 
-- Training is the expensive build step.
-- Policy and explanation changes can often be reevaluated from saved predictions without retraining.
-- `artifacts/` should be kept if you want to reuse trained models.
-- Thumbnail download and image feature extraction are dataset-preparation steps, so they live in `scripts/`.
+- Model weights are not committed (too large). Run training to regenerate them.
+- `artifacts/*/metadata.json` and `predictions_*.json` are committed and contain all evaluation metrics.
+- Policy and threshold changes can be reevaluated from saved predictions without retraining using `scripts/reevaluate_policy_from_predictions.py`.

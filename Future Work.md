@@ -1,8 +1,19 @@
 # Future Work
 
-## 1. Add Image Analysis of YouTube Thumbnails
+## 1. Replace MetaHarm with a Child-Specific Training Dataset
 
-Extend the current text-focused system into a multimodal pipeline by analyzing YouTube thumbnails alongside metadata and transcripts. Thumbnail analysis could help detect visual risk signals that are not visible in titles, descriptions, or spoken content.
+The most impactful improvement for a future version is replacing MetaHarm with a dataset designed specifically for child safety on video platforms. MetaHarm is a general-purpose harmful content dataset built for broad adult audiences — it was not designed around what is inappropriate *for children*, and this causes two structural problems:
+
+- **Missing child-appropriate negatives.** MetaHarm has no verified examples of child-safe content. The model has never learned that nursery rhyme vocabulary, animal nature content, or cartoon thumbnails are safe signals, so it misclassifies mainstream children's videos (see Known Limitations).
+- **Label contamination from bad actors.** Harmful content that mimics children's vocabulary (adult parodies, inappropriate remixes using "nursery rhyme" or "kids songs" as cover) is labelled harmful in MetaHarm. The model learns these words as risk signals, penalising legitimate children's content.
+
+The recommended dataset for a future version is the **Disturbed YouTube for Kids** dataset (Papadamou et al., ICWSM 2020), available at [https://zenodo.org/records/3632781](https://zenodo.org/records/3632781). It contains 4,797 manually annotated YouTube videos labelled as suitable, disturbing, restricted, or irrelevant — built specifically for detecting inappropriate content in the children's video space.
+
+Practical angles for using this dataset:
+
+- **Add "suitable" videos as hard negatives.** The "suitable" class provides verified child-appropriate content that is currently missing from training. Adding these alongside MetaHarm harmful examples would directly fix the false positive patterns observed on Cocomelon and nature videos.
+- **Use as a held-out evaluation benchmark.** Evaluating the current model on the Disturbed YouTube for Kids dataset (mapping suitable → ALLOW, disturbing/restricted → WARN/BLOCK) would quantify how poorly the model generalises to real-world children's YouTube content — a meaningful finding for the paper.
+- **LLM-assisted re-labelling.** The "disturbing" and "restricted" videos can be re-annotated with fine-grained ADD/SXL/PH/HH labels using an LLM (e.g. Claude, GPT-4) applied to their metadata, creating a child-safety-specific version of the fine-grained label space.
 
 ## 2. Improve the Age-Aware Policy Decision Maker
 

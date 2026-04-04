@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
+
+from dotenv import load_dotenv
+load_dotenv()
 
 from flask import Flask, render_template_string, request
 
@@ -19,6 +23,15 @@ CATEGORY_COLORS = {
 }
 
 VIEW_MODES = ("basic", "detailed")
+
+# display_name -> (mode, artifact_subdir, image_analysis_model)
+MODEL_OPTIONS = {
+    "text":       ("text",       "text",                       "clip"),
+    "image":      ("image",      "image_clip_nsfw_violence",   "clip_nsfw_violence"),
+    "multimodal": ("multimodal", "multimodal_clip_nsfw_violence", "clip_nsfw_violence"),
+}
+DEFAULT_MODEL_OPTION = "multimodal"
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 PAGE_TEMPLATE = """
 <!doctype html>
@@ -500,10 +513,10 @@ PAGE_TEMPLATE = """
             <input id="url" name="url" type="text" value="{{ url }}" placeholder="https://www.youtube.com/watch?v=..." required>
           </div>
           <div class="form-row">
-            <label for="mode">Analysis Mode:</label>
-            <select id="mode" name="mode">
-              {% for option in modes %}
-                <option value="{{ option }}" {% if option == selected_mode %}selected{% endif %}>{{ option.title() }}</option>
+            <label for="model_option">Model:</label>
+            <select id="model_option" name="model_option">
+              {% for option in model_options %}
+                <option value="{{ option }}" {% if option == selected_model_option %}selected{% endif %}>{{ option }}</option>
               {% endfor %}
             </select>
           </div>
@@ -544,7 +557,7 @@ PAGE_TEMPLATE = """
                 <div class="decision {{ rec.decision }}">{{ rec.decision }}</div>
               </div>
               <div class="chart">
-                {% set policy_thresholds = result.get('training_metadata', {}).get('policy_thresholds', default_policy_thresholds) %}
+                {% set policy_thresholds = result.get('policy_thresholds') or default_policy_thresholds %}
                 {% set age_thresholds = policy_thresholds[age_group] %}
                 {% for label in labels_order %}
                   {% set score = result.get('model_scores', {}).get(label, 0.0) %}
@@ -677,30 +690,42 @@ def index():
     result = None
     error = None
     url = ""
-    selected_mode = MODE
+    selected_model_option = DEFAULT_MODEL_OPTION
     selected_view = "basic"
-    modes = ["text", "image", "multimodal"]
 
     if request.method == "POST":
         url = request.form.get("url", "").strip()
-        selected_mode = request.form.get("mode", MODE).strip() or MODE
+        selected_model_option = request.form.get("model_option", DEFAULT_MODEL_OPTION).strip() or DEFAULT_MODEL_OPTION
+        if selected_model_option not in MODEL_OPTIONS:
+            selected_model_option = DEFAULT_MODEL_OPTION
         selected_view = request.form.get("view", "basic").strip() or "basic"
         if selected_view not in VIEW_MODES:
             selected_view = "basic"
+
+        selected_mode, artifact_subdir, image_analysis_model = MODEL_OPTIONS[selected_model_option]
+        artifact_dir = REPO_ROOT / "artifacts" / artifact_subdir
         api_key = os.environ.get("YOUTUBE_API_KEY", "")
         try:
-            result = analyze_youtube_url(url, api_key, mode=selected_mode)
+            result = analyze_youtube_url(
+                url,
+                api_key,
+                mode=selected_mode,
+                artifact_dir=artifact_dir,
+                image_analysis_model=image_analysis_model,
+            )
         except Exception as exc:
             error = str(exc)
+    else:
+        selected_mode, _, _ = MODEL_OPTIONS[selected_model_option]
 
     return render_template_string(
         PAGE_TEMPLATE,
         result=result,
         error=error,
         url=url,
-        selected_mode=selected_mode,
+        selected_model_option=selected_model_option,
         selected_view=selected_view,
-        modes=modes,
+        model_options=list(MODEL_OPTIONS.keys()),
         labels_order=LABELS_ORDER,
         category_descriptions=CATEGORY_DESCRIPTIONS,
         category_colors=CATEGORY_COLORS,

@@ -7,7 +7,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-from guardaikids.config import AGE_GROUPS, IMAGE_ANALYSIS_MODEL, LABELS_ORDER, MODE, XAI_METHOD, default_artifact_dir
+from guardaikids.config import AGE_GROUPS, IMAGE_ANALYSIS_MODEL, LABELS_ORDER, MODE, XAI_METHOD, default_artifact_dir, default_image_feature_dir_for_model
 from guardaikids.explainability import explain_video
 from guardaikids.image_features import extract_thumbnail_features_from_url
 from guardaikids.modeling import load_saved_model, predict_video_text
@@ -37,16 +37,44 @@ def train_and_save_system(
     xai_method: str | None = None,
 ) -> tuple[dict[str, object], Path]:
     selected_mode = mode or MODE
-    results = run_training_workflow(harmful_path, harmless_path, mode=selected_mode)
+    selected_image_model = image_analysis_model or IMAGE_ANALYSIS_MODEL
+    image_feature_dir = default_image_feature_dir_for_model(selected_image_model)
+    results = run_training_workflow(
+        harmful_path,
+        harmless_path,
+        mode=selected_mode,
+        image_analysis_model=selected_image_model,
+        image_feature_dir=image_feature_dir,
+    )
     resolved_dir = resolve_artifact_dir(artifact_dir, mode=selected_mode)
     save_training_artifacts(
         results,
         resolved_dir,
         mode=selected_mode,
-        image_analysis_model=image_analysis_model or IMAGE_ANALYSIS_MODEL,
+        image_analysis_model=selected_image_model,
         xai_method=xai_method or XAI_METHOD,
     )
     return results, resolved_dir
+
+
+def _thresholds_from_artifact(metadata: dict) -> dict | None:
+    """Convert per-artifact f2/f1 thresholds to the warn/block structure used by policy functions.
+
+    f2_thresholds (recall-weighted) map to 'warn'; f1_thresholds (balanced) map to 'block'.
+    The same thresholds are applied across all age groups since training does not produce
+    per-age-group calibration.
+    """
+    f2 = metadata.get("f2_thresholds")
+    f1 = metadata.get("f1_thresholds")
+    if not f2 or not f1:
+        return None
+    return {
+        age_group: {
+            label: {"warn": float(f2[label]), "block": float(f1[label])}
+            for label in f2
+        }
+        for age_group in AGE_GROUPS
+    }
 
 
 def load_analysis_artifacts(artifact_dir: str | Path | None = None, mode: str | None = None) -> AnalysisArtifacts:
@@ -107,6 +135,7 @@ def analyze_youtube_url(
             age_group,
             artifacts.model,
             artifacts.tokenizer,
+            thresholds=None,  # use config age-aware thresholds
             image_features=image_features,
             xai_method=xai_method or XAI_METHOD,
         )

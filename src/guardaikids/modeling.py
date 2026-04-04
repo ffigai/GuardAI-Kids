@@ -15,7 +15,7 @@ from torch import nn
 from transformers import AutoConfig, AutoModel, AutoTokenizer, Trainer, TrainingArguments
 from transformers.modeling_outputs import SequenceClassifierOutput
 
-from guardaikids.config import IMAGE_FEATURE_DIM, LABELS_ORDER, MAX_LENGTH, MODE, MODEL_NAME
+from guardaikids.config import IMAGE_ANALYSIS_MODEL, IMAGE_FEATURE_DIMS, LABELS_ORDER, MAX_LENGTH, MODE, MODEL_NAME
 from guardaikids.data import prepare_dataset_inputs
 
 CUSTOM_CONFIG_NAME = "guardaikids_model_config.json"
@@ -40,7 +40,7 @@ class MultimodalSequenceClassifier(nn.Module):
         model_name: str = MODEL_NAME,
         num_labels: int = len(LABELS_ORDER),
         mode: str = MODE,
-        image_feature_dim: int = IMAGE_FEATURE_DIM,
+        image_feature_dim: int = IMAGE_FEATURE_DIMS[IMAGE_ANALYSIS_MODEL],
         fusion_hidden_dim: int | None = None,
         text_encoder: nn.Module | None = None,
     ) -> None:
@@ -178,6 +178,8 @@ class MultimodalSequenceClassifier(nn.Module):
             text_encoder=text_encoder,
         )
         state_dict = torch.load(model_dir / CUSTOM_WEIGHTS_NAME, map_location="cpu")
+        # pos_weight is a training-only buffer; strip it so strict loading works at inference time.
+        state_dict.pop("loss_fn.pos_weight", None)
         try:
             model.load_state_dict(state_dict)
         except RuntimeError as exc:
@@ -233,13 +235,13 @@ def build_model(
     model_name: str = MODEL_NAME,
     num_labels: int = len(LABELS_ORDER),
     mode: str = MODE,
-    image_feature_dim: int = IMAGE_FEATURE_DIM,
+    image_feature_dim: int | None = None,
 ):
     return MultimodalSequenceClassifier(
         model_name=model_name,
         num_labels=num_labels,
         mode=mode,
-        image_feature_dim=image_feature_dim,
+        image_feature_dim=image_feature_dim or IMAGE_FEATURE_DIMS[IMAGE_ANALYSIS_MODEL],
     )
 
 
@@ -249,17 +251,27 @@ def load_saved_model(model_dir: str | Path, tokenizer_dir: str | Path):
     return model, tokenizer
 
 
-def build_training_args(output_dir: str = "./results") -> TrainingArguments:
+def build_training_args(output_dir: str = "./results", mode: str = MODE) -> TrainingArguments:
+    # Image-only mode trains a randomly initialised MLP — needs a higher LR and more epochs.
+    # Text/multimodal modes fine-tune a pretrained transformer, so keep the conservative LR.
+    if mode == "image":
+        lr = 1e-3
+        epochs = 15
+    else:
+        lr = 2e-5
+        epochs = 3
     return TrainingArguments(
         output_dir=output_dir,
         eval_strategy="epoch",
         save_strategy="epoch",
-        learning_rate=2e-5,
+        learning_rate=lr,
         per_device_train_batch_size=16,
         per_device_eval_batch_size=16,
-        num_train_epochs=3,
+        num_train_epochs=epochs,
         weight_decay=0.01,
         load_best_model_at_end=True,
+        metric_for_best_model="eval_macro_f1",
+        greater_is_better=True,
     )
 
 
@@ -273,16 +285,30 @@ def compute_metrics(eval_pred):
     }
 
 
-def train_multilabel_classifier(train_dataset, val_dataset, mode: str = MODE) -> TrainingArtifacts:
+def train_multilabel_classifier(
+    train_dataset,
+    val_dataset,
+    mode: str = MODE,
+    image_feature_dim: int | None = None,
+    image_feature_dir: str | None = None,
+) -> TrainingArtifacts:
     tokenizer = build_tokenizer()
-    prepared_train = prepare_dataset_inputs(train_dataset, mode=mode)
-    prepared_val = prepare_dataset_inputs(val_dataset, mode=mode)
+    prepared_train = prepare_dataset_inputs(train_dataset, mode=mode, image_feature_dir=image_feature_dir, image_feature_dim=image_feature_dim)
+    prepared_val = prepare_dataset_inputs(val_dataset, mode=mode, image_feature_dir=image_feature_dir, image_feature_dim=image_feature_dim)
     tokenized_train = tokenize_dataset(prepared_train, tokenizer, mode=mode)
     tokenized_val = tokenize_dataset(prepared_val, tokenizer, mode=mode)
-    model = build_model(mode=mode)
+    model = build_model(mode=mode, image_feature_dim=image_feature_dim)
+
+    # Compute per-label pos_weight = (N - n_pos) / n_pos, capped at 10 to avoid over-prediction.
+    all_labels = np.array(tokenized_train["labels"])
+    n_pos = all_labels.sum(axis=0).clip(min=1)
+    n_neg = len(all_labels) - n_pos
+    pos_weight = torch.tensor((n_neg / n_pos).clip(max=10.0), dtype=torch.float32).to(model.device)
+    model.loss_fn = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
+
     trainer = Trainer(
         model=model,
-        args=build_training_args(),
+        args=build_training_args(mode=mode),
         train_dataset=tokenized_train,
         eval_dataset=tokenized_val,
         compute_metrics=compute_metrics,

@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import pandas as pd
+from sklearn.metrics import auc, roc_curve
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SRC_DIR = REPO_ROOT / "src"
@@ -18,6 +20,16 @@ if str(SRC_DIR) not in sys.path:
 from guardaikids.config import AGE_GROUPS, LABELS_ORDER, default_artifact_dir
 
 DEFAULT_MODES = ["text", "image", "multimodal"]
+MODE_COLORS = {
+    "text": "#1f77b4",
+    "image": "#ff7f0e",
+    "multimodal": "#2ca02c",
+}
+
+
+def ordered_modes(series: pd.Series) -> list[str]:
+    available = set(series.dropna().astype(str).tolist())
+    return [mode for mode in DEFAULT_MODES if mode in available]
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -50,6 +62,14 @@ def load_metadata(artifacts_root: Path, mode: str) -> dict[str, object]:
     if not metadata_path.exists():
         raise FileNotFoundError(f"Missing metadata for mode '{mode}': {metadata_path}")
     with metadata_path.open("r", encoding="utf-8") as handle:
+        return json.load(handle)
+
+
+def load_predictions(artifacts_root: Path, mode: str) -> dict[str, object]:
+    prediction_path = artifacts_root / mode / f"predictions_{mode}.json"
+    if not prediction_path.exists():
+        raise FileNotFoundError(f"Missing prediction file for mode '{mode}': {prediction_path}")
+    with prediction_path.open("r", encoding="utf-8") as handle:
         return json.load(handle)
 
 
@@ -119,6 +139,10 @@ def save_markdown_tables(overview_df: pd.DataFrame, roc_auc_df: pd.DataFrame, po
         handle.write("\n")
 
 
+def sigmoid(value: float) -> float:
+    return 1.0 / (1.0 + math.exp(-value))
+
+
 def plot_grouped_bars(
     df: pd.DataFrame,
     category_col: str,
@@ -139,12 +163,169 @@ def plot_grouped_bars(
     plt.close()
 
 
+def plot_roc_auc_comparison(roc_auc_df: pd.DataFrame, output_path: Path) -> None:
+    pivot = (
+        roc_auc_df.pivot(index="label", columns="mode", values="roc_auc")
+        .reindex(index=LABELS_ORDER, columns=ordered_modes(roc_auc_df["mode"]))
+    )
+    modes = list(pivot.columns)
+    labels = list(pivot.index)
+    x_positions = range(len(labels))
+    width = 0.22
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    for offset_index, mode in enumerate(modes):
+        offset = (offset_index - (len(modes) - 1) / 2) * width
+        bar_positions = [x + offset for x in x_positions]
+        values = pivot[mode].tolist()
+        bars = ax.bar(
+            bar_positions,
+            values,
+            width=width,
+            label=mode.title(),
+            color=MODE_COLORS.get(mode, "#4c4c4c"),
+            edgecolor="black",
+            linewidth=0.6,
+        )
+        for bar, value in zip(bars, values):
+            ax.text(
+                bar.get_x() + bar.get_width() / 2,
+                value + 0.006,
+                f"{value:.3f}",
+                ha="center",
+                va="bottom",
+                fontsize=9,
+            )
+
+    ax.set_title("ROC-AUC by Harm Category", fontsize=14, pad=12)
+    ax.set_xlabel("Harm Category", fontsize=11)
+    ax.set_ylabel("ROC-AUC", fontsize=11)
+    ax.set_xticks(list(x_positions))
+    ax.set_xticklabels(labels, fontsize=10)
+    ax.set_ylim(0.65, 1.0)
+    ax.grid(axis="y", linestyle="--", alpha=0.35)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.legend(title="Mode", frameon=False)
+
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=300, bbox_inches="tight")
+    plt.close()
+
+
+def plot_roc_curves(predictions_by_mode: dict[str, dict[str, object]], output_path: Path) -> None:
+    fig, axes = plt.subplots(2, 2, figsize=(12, 9))
+    axes = axes.flatten()
+
+    for label_index, label in enumerate(LABELS_ORDER):
+        ax = axes[label_index]
+        for mode in ordered_modes(pd.Series(list(predictions_by_mode.keys()))):
+            payload = predictions_by_mode[mode]
+            labels = payload.get("labels", [])
+            logits = payload.get("logits")
+            predictions = payload.get("predictions")
+            if logits is not None:
+                scores = [sigmoid(row[label_index]) for row in logits]
+            elif predictions is not None:
+                scores = [row[label_index] for row in predictions]
+            else:
+                continue
+            y_true = [row[label_index] for row in labels]
+            fpr, tpr, _ = roc_curve(y_true, scores)
+            roc_auc_score = auc(fpr, tpr)
+            ax.plot(
+                fpr,
+                tpr,
+                label=f"{mode.title()} (AUC={roc_auc_score:.3f})",
+                color=MODE_COLORS.get(mode, "#4c4c4c"),
+                linewidth=2,
+            )
+
+        ax.plot([0, 1], [0, 1], linestyle="--", color="#888888", linewidth=1)
+        ax.set_title(label, fontsize=12)
+        ax.set_xlabel("False Positive Rate", fontsize=10)
+        ax.set_ylabel("True Positive Rate", fontsize=10)
+        ax.set_xlim(0.0, 1.0)
+        ax.set_ylim(0.0, 1.05)
+        ax.grid(alpha=0.25, linestyle="--")
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+        ax.legend(frameon=False, fontsize=9, loc="lower right")
+
+    fig.suptitle("ROC Curves by Harm Category", fontsize=15, y=0.98)
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=300, bbox_inches="tight")
+    plt.close()
+
+
+def plot_policy_metric_by_age(
+    policy_df: pd.DataFrame,
+    metric_col: str,
+    title: str,
+    y_label: str,
+    output_path: Path,
+    y_min: float = 0.0,
+    y_max: float = 1.0,
+) -> None:
+    age_order = list(AGE_GROUPS)
+    pivot = (
+        policy_df.pivot(index="age_group", columns="mode", values=metric_col)
+        .reindex(index=age_order, columns=ordered_modes(policy_df["mode"]))
+    )
+    modes = list(pivot.columns)
+    ages = ["0-4", "5-8", "9-12"]
+    x_positions = range(len(age_order))
+    width = 0.22
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    for offset_index, mode in enumerate(modes):
+        offset = (offset_index - (len(modes) - 1) / 2) * width
+        bar_positions = [x + offset for x in x_positions]
+        values = pivot[mode].tolist()
+        bars = ax.bar(
+            bar_positions,
+            values,
+            width=width,
+            label=mode.title(),
+            color=MODE_COLORS.get(mode, "#4c4c4c"),
+            edgecolor="black",
+            linewidth=0.6,
+        )
+        for bar, value in zip(bars, values):
+            ax.text(
+                bar.get_x() + bar.get_width() / 2,
+                value + 0.015,
+                f"{value:.3f}",
+                ha="center",
+                va="bottom",
+                fontsize=9,
+            )
+
+    ax.set_title(title, fontsize=14, pad=12)
+    ax.set_xlabel("Age Group", fontsize=11)
+    ax.set_ylabel(y_label, fontsize=11)
+    ax.set_xticks(list(x_positions))
+    ax.set_xticklabels(ages, fontsize=10)
+    ax.set_ylim(y_min, y_max)
+    ax.grid(axis="y", linestyle="--", alpha=0.35)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.legend(title="Mode", frameon=False)
+
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=300, bbox_inches="tight")
+    plt.close()
+
+
 def main() -> None:
     args = build_parser().parse_args()
     output_dir = args.output_dir
     output_dir.mkdir(parents=True, exist_ok=True)
 
     metadata_by_mode = {mode: load_metadata(args.artifacts_root, mode) for mode in args.modes}
+    predictions_by_mode = {mode: load_predictions(args.artifacts_root, mode) for mode in args.modes}
     overview_df, roc_auc_df, policy_df = build_summary_rows(metadata_by_mode)
 
     overview_df.to_csv(output_dir / "overview.csv", index=False)
@@ -152,37 +333,34 @@ def main() -> None:
     policy_df.to_csv(output_dir / "policy_metrics_by_age.csv", index=False)
     save_markdown_tables(overview_df, roc_auc_df, policy_df, output_dir)
 
-    plot_grouped_bars(
-        roc_auc_df,
-        category_col="label",
-        value_col="roc_auc",
-        title="ROC-AUC By Harm Category",
-        y_label="ROC-AUC",
-        output_path=output_dir / "roc_auc_by_label.png",
-    )
-    plot_grouped_bars(
+    plot_roc_auc_comparison(roc_auc_df, output_dir / "roc_auc_by_label.png")
+    plot_roc_curves(predictions_by_mode, output_dir / "roc_curves_by_label.png")
+    plot_policy_metric_by_age(
         policy_df,
-        category_col="age_group",
-        value_col="protection_rate",
-        title="Protection Rate By Age Group",
+        metric_col="protection_rate",
+        title="Protection Rate by Age Group",
         y_label="Protection Rate",
         output_path=output_dir / "protection_rate_by_age.png",
+        y_min=0.0,
+        y_max=1.05,
     )
-    plot_grouped_bars(
+    plot_policy_metric_by_age(
         policy_df,
-        category_col="age_group",
-        value_col="block_precision",
-        title="Block Precision By Age Group",
+        metric_col="block_precision",
+        title="Block Precision by Age Group",
         y_label="Block Precision",
         output_path=output_dir / "block_precision_by_age.png",
+        y_min=0.0,
+        y_max=1.10,
     )
-    plot_grouped_bars(
+    plot_policy_metric_by_age(
         policy_df,
-        category_col="age_group",
-        value_col="block_recall",
-        title="Block Recall By Age Group",
+        metric_col="block_recall",
+        title="Block Recall by Age Group",
         y_label="Block Recall",
         output_path=output_dir / "block_recall_by_age.png",
+        y_min=0.0,
+        y_max=0.80,
     )
 
     print(f"Saved report files to: {output_dir}")
@@ -191,6 +369,7 @@ def main() -> None:
     print(f"- {output_dir / 'policy_metrics_by_age.csv'}")
     print(f"- {output_dir / 'summary_report.md'}")
     print(f"- {output_dir / 'roc_auc_by_label.png'}")
+    print(f"- {output_dir / 'roc_curves_by_label.png'}")
     print(f"- {output_dir / 'protection_rate_by_age.png'}")
     print(f"- {output_dir / 'block_precision_by_age.png'}")
     print(f"- {output_dir / 'block_recall_by_age.png'}")

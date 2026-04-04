@@ -1,0 +1,31 @@
+{
+  "sample_count": 13835,
+  "min": 2,
+  "mean": 1359.3634260932417,
+  "max": 13008,
+  "percentiles": {
+    "p50": 424.0,
+    "p75": 1849.5,
+    "p90": 3956.800000000001,
+    "p95": 6525.799999999996,
+    "p99": 7847.98
+  },
+  "thresholds": {
+    "128": {
+      "samples_over_limit": 10289,
+      "share_over_limit": 0.7436935308998915
+    },
+    "256": {
+      "samples_over_limit": 8127,
+      "share_over_limit": 0.5874232020238526
+    },
+    "384": {
+      "samples_over_limit": 7180,
+      "share_over_limit": 0.5189736176364294
+    },
+    "512": {
+      "samples_over_limit": 6518,
+      "share_over_limit": 0.471123960968558
+    }
+  }
+}

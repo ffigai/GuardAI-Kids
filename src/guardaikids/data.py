@@ -7,7 +7,7 @@ import pandas as pd
 from datasets import Dataset
 from sklearn.model_selection import train_test_split
 
-from guardaikids.config import IMAGE_FEATURE_DIM, MODE, TARGET_LABELS, default_image_feature_dir
+from guardaikids.config import IMAGE_ANALYSIS_MODEL, IMAGE_FEATURE_DIMS, MODE, TARGET_LABELS, default_image_feature_dir
 
 REQUIRED_SOURCE_COLUMNS = {"video_id", "harm_cat", "title", "description", "transcript"}
 THUMBNAIL_LABEL_COLUMN = "thumbnail_harm_cat"
@@ -42,8 +42,9 @@ def encode_labels(value: str, target_labels: list[str] | None = None) -> list[st
     return [item for item in categories if item in labels]
 
 
-def _build_missing_image_features(image_feature_dim: int = IMAGE_FEATURE_DIM) -> np.ndarray:
-    missing = np.zeros(image_feature_dim, dtype=np.float32)
+def _build_missing_image_features(image_feature_dim: int | None = None) -> np.ndarray:
+    dim = image_feature_dim or IMAGE_FEATURE_DIMS[IMAGE_ANALYSIS_MODEL]
+    missing = np.zeros(dim, dtype=np.float32)
     missing[-1] = 1.0
     return missing
 
@@ -51,11 +52,12 @@ def _build_missing_image_features(image_feature_dim: int = IMAGE_FEATURE_DIM) ->
 def load_image_features(
     video_id: str,
     image_feature_dir: str | Path | None = None,
-    image_feature_dim: int = IMAGE_FEATURE_DIM,
+    image_feature_dim: int | None = None,
 ) -> list[float]:
+    image_feature_dim = image_feature_dim or IMAGE_FEATURE_DIMS[IMAGE_ANALYSIS_MODEL]
     feature_dir = Path(image_feature_dir) if image_feature_dir else default_image_feature_dir()
     feature_path = feature_dir / f"{video_id}.npy"
-    missing = _build_missing_image_features(image_feature_dim)
+    missing = _build_missing_image_features(image_feature_dim)  # dim already resolved above
     if not feature_path.exists():
         return missing.tolist()
 
@@ -147,6 +149,7 @@ def prepare_dataset_inputs(
     dataset: Dataset,
     mode: str = MODE,
     image_feature_dir: str | Path | None = None,
+    image_feature_dim: int | None = None,
 ) -> Dataset:
     if mode not in {"text", "image", "multimodal"}:
         raise ValueError(f"Unsupported mode: {mode}")
@@ -158,6 +161,7 @@ def prepare_dataset_inputs(
                 "image_features": load_image_features(
                     row["video_id"],
                     image_feature_dir=image_feature_dir,
+                    image_feature_dim=image_feature_dim,
                 )
             }
         )

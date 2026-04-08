@@ -3,6 +3,7 @@
 ## High-Level Overview
 
 ```mermaid
+%%{init: {'theme': 'default'}}%%
 flowchart LR
     URL([YouTube URL])
 

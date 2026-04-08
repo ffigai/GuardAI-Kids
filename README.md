@@ -1,6 +1,7 @@
 # GuardAI Kids
 
 ```mermaid
+%%{init: {'theme': 'default'}}%%
 flowchart LR
     URL([YouTube URL])
 

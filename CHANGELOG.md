@@ -34,12 +34,6 @@ The following were removed: `artifacts/image/`, `artifacts/image_clip_ocr/`, `ar
 
 ---
 
-### Updated: documentation
-
-`README.md`, `PROJECT_SUMMARY.md`, and `SYSTEM_DIAGRAM.md` updated to reflect the current system architecture, the three final artifact configurations, and the 537-dim `clip_nsfw_violence` feature vector layout.
-
----
-
 ## [v3] — 2026-04-04
 
 ### New: clip_nsfw_violence image analysis pipeline

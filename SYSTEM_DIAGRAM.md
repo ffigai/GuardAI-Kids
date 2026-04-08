@@ -1,5 +1,61 @@
 # GuardAI Kids System Diagram
 
+## High-Level Overview
+
+```mermaid
+flowchart LR
+    URL([YouTube URL])
+
+    subgraph EXT[Data Extraction]
+        E1[Title]
+        E2[Description]
+        E3[Channel Name]
+        E4[Transcript]
+        E5[Thumbnail URL]
+    end
+
+    subgraph PREP[Data Preparation]
+        P1[Text Preparation]
+        P2[Thumbnail Retrieval and\nImage Feature Extraction]
+    end
+
+    subgraph ANALYSIS[Data Analysis]
+        A1[Text Analysis\nDistilRoBERTa]
+        A2[Multimodal Analysis\nText + Image Fusion MLP]
+        A3[Image Analysis\nCLIP + NSFW + Violence]
+    end
+
+    SCORES[Multi-Label Risk Scores\nADD · SXL · PH · HH]
+
+    POLICY[Policy Decision\nF2 Threshold Comparison]
+
+    XAI[Explainability Layer]
+
+    subgraph OUT[Final Output]
+        O1[Safe / Harmful\n+ Category Tags]
+        O2[Text Evidence]
+        O3[Image Evidence]
+    end
+
+    URL --> EXT
+    E1 & E2 & E3 & E4 --> P1
+    E5 --> P2
+
+    P1 --> A1
+    P1 --> A2
+    P2 --> A2
+    P2 --> A3
+
+    A1 & A2 & A3 --> SCORES
+
+    SCORES --> POLICY
+    SCORES --> XAI
+
+    POLICY --> O1
+    XAI --> O2
+    XAI --> O3
+```
+
 ## Full Pipeline
 
 ```mermaid

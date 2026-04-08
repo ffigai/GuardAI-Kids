@@ -14,23 +14,23 @@ flowchart LR
 
     subgraph PREP[Data Preparation]
         P1[Text Preparation]
-        P2[Thumbnail Retrieval and\nImage Feature Extraction]
+        P2[Thumbnail Retrieval and<br/>Image Feature Extraction]
     end
 
     subgraph ANALYSIS[Data Analysis]
-        A1[Text Analysis\nDistilRoBERTa]
-        A2[Multimodal Analysis\nText + Image Fusion MLP]
-        A3[Image Analysis\nCLIP + NSFW + Violence]
+        A1[Text Analysis<br/>DistilRoBERTa]
+        A2[Multimodal Analysis<br/>Text + Image Fusion MLP]
+        A3[Image Analysis<br/>CLIP + NSFW + Violence]
     end
 
-    SCORES[Multi-Label Risk Scores\nADD · SXL · PH · HH]
+    SCORES[Multi-Label Risk Scores<br/>ADD - SXL - PH - HH]
 
-    POLICY[Policy Decision\nF2 Threshold Comparison]
+    POLICY[Policy Decision<br/>F2 Threshold Comparison]
 
     XAI[Explainability Layer]
 
     subgraph OUT[Final Output]
-        O1[Safe / Harmful\n+ Category Tags]
+        O1[Safe / Harmful<br/>+ Category Tags]
         O2[Text Evidence]
         O3[Image Evidence]
     end

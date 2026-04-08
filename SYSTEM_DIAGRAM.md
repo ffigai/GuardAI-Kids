@@ -16,23 +16,23 @@ flowchart LR
 
     subgraph PREP[Data Preparation]
         P1[Text Preparation]
-        P2[Thumbnail Retrieval and\nImage Feature Extraction]
+        P2[Thumbnail Retrieval and<br/>Image Feature Extraction]
     end
 
     subgraph ANALYSIS[Data Analysis]
-        A1[Text Analysis\nDistilRoBERTa]
-        A2[Multimodal Analysis\nText + Image Fusion MLP]
-        A3[Image Analysis\nCLIP + NSFW + Violence]
+        A1[Text Analysis<br/>DistilRoBERTa]
+        A2[Multimodal Analysis<br/>Text + Image Fusion MLP]
+        A3[Image Analysis<br/>CLIP + NSFW + Violence]
     end
 
-    SCORES[Multi-Label Risk Scores\nADD · SXL · PH · HH]
+    SCORES[Multi-Label Risk Scores<br/>ADD - SXL - PH - HH]
 
-    POLICY[Policy Decision\nF2 Threshold Comparison]
+    POLICY[Policy Decision<br/>F2 Threshold Comparison]
 
     XAI[Explainability Layer]
 
     subgraph OUT[Final Output]
-        O1[Safe / Harmful\n+ Category Tags]
+        O1[Safe / Harmful<br/>+ Category Tags]
         O2[Text Evidence]
         O3[Image Evidence]
     end
@@ -69,13 +69,13 @@ flowchart TD
 
     T2 --> T3[Image Feature Extraction<br/>scripts/extract_image_features.py]
 
-    subgraph T3_detail[Image Feature Extraction — clip_nsfw_violence]
+    subgraph T3_detail[Image Feature Extraction - clip_nsfw_violence]
         TA[CLIP Image Encoder<br/>512-dim visual embedding]
         TB[CLIP Text Encoder<br/>8 harm-prompt similarity scores]
         TC[Quality Features<br/>brightness, contrast, saturation,<br/>colorfulness, detail]
         TD_nsfw[Marqo NSFW Classifier<br/>NSFW probability score]
         TE_viol[Violence Classifier ViT-B/16<br/>violence probability score]
-        TF[EasyOCR → CLIP<br/>8 OCR harm-similarity scores + flag]
+        TF[EasyOCR -> CLIP<br/>8 OCR harm-similarity scores + flag]
     end
 
     T2 --> TA
@@ -161,17 +161,17 @@ flowchart LR
     subgraph D[Data Analysis]
         D1[Text Analysis<br/>DistilRoBERTa]
 
-        subgraph D2[Image Analysis — clip_nsfw_violence]
+        subgraph D2[Image Analysis - clip_nsfw_violence]
             D2a[CLIP visual embedding<br/>512-dim]
             D2b[CLIP harm-prompt similarity<br/>8 scores]
             D2c[Quality features<br/>5 scores]
             D2d[Marqo NSFW score]
             D2e[Violence ViT-B/16 score]
-            D2f[EasyOCR → CLIP<br/>8 OCR scores + flag]
+            D2f[EasyOCR -> CLIP<br/>8 OCR scores + flag]
         end
 
         D3[Multimodal Analysis<br/>Text + Image fusion MLP]
-        D4[Multi-Label Risk Scores<br/>ADD · SXL · PH · HH]
+        D4[Multi-Label Risk Scores<br/>ADD - SXL - PH - HH]
     end
 
     C1 --> D1
@@ -257,14 +257,14 @@ flowchart TB
 
 | Dimensions | Source | Model |
 |---|---|---|
-| 0–511 | Visual embedding | CLIP ViT-B/32 image encoder |
-| 512–519 | Harm-prompt similarity (visual) | CLIP text encoder × 8 prompts |
-| 520–524 | Quality features | Handcrafted (brightness, contrast, saturation, colorfulness, detail) |
+| 0-511 | Visual embedding | CLIP ViT-B/32 image encoder |
+| 512-519 | Harm-prompt similarity (visual) | CLIP text encoder x 8 prompts |
+| 520-524 | Quality features | Handcrafted (brightness, contrast, saturation, colorfulness, detail) |
 | 525 | NSFW score | Marqo/nsfw-image-detection-384 |
 | 526 | Violence score | jaranohaal/vit-base-violence-detection (ViT-B/16) |
 | 527 | has_ocr_text flag | EasyOCR gate |
-| 528–535 | Harm-prompt similarity (OCR text) | CLIP text encoder × 8 prompts |
-| 536 | Missing image flag | — |
+| 528-535 | Harm-prompt similarity (OCR text) | CLIP text encoder x 8 prompts |
+| 536 | Missing image flag | - |
 
 **Total: 537-dim**
 
@@ -273,5 +273,5 @@ flowchart TB
 - Text mode uses `distilroberta-base` with CLS-token style pooling.
 - Image and multimodal modes use precomputed 537-dim thumbnail features (`clip_nsfw_violence` backend).
 - Multimodal fusion concatenates the 768-dim text embedding with the 537-dim image vector, then applies an MLP fusion head.
-- Decision thresholds are F2-optimized per label per mode and stored in each artifact's `metadata.json`. They are loaded at runtime — no hardcoded thresholds.
+- Decision thresholds are F2-optimized per label per mode and stored in each artifact's `metadata.json`. They are loaded at runtime - no hardcoded thresholds.
 - Explainability is gradient-based for text tokens and cue-summary-based for image features (including OCR text cues).

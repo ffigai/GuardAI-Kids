@@ -40,9 +40,9 @@ flowchart LR
     E5 --> P2
 
     P1 --> A1
-    P1 --> A2
-    P2 --> A2
     P2 --> A3
+    A1 --> A2
+    A3 --> A2
 
     A1 & A2 & A3 --> SCORES
 

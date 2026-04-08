@@ -10,7 +10,7 @@ load_dotenv()
 
 from flask import Flask, render_template_string, request
 
-from guardaikids.config import CATEGORY_DESCRIPTIONS, LABELS_ORDER, MODE, get_default_thresholds
+from guardaikids.config import CATEGORY_DESCRIPTIONS, LABELS_ORDER, MODE
 from guardaikids.service import analyze_youtube_url
 
 app = Flask(__name__)
@@ -39,7 +39,7 @@ PAGE_TEMPLATE = """
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>GuardAI Kids: Age-Aware YouTube Content Safety Analyzer</title>
+  <title>GuardAI Kids: YouTube Content Safety Analyzer</title>
   <style>
     :root {
       --bg: #f7f7f8;
@@ -48,9 +48,8 @@ PAGE_TEMPLATE = """
       --muted: #606060;
       --accent: #ff0000;
       --line: #dadce0;
-      --allow: #16a34a;
-      --warn: #f59e0b;
-      --block: #dc2626;
+      --safe: #16a34a;
+      --harmful: #dc2626;
       --add: #ff8a00;
       --sxl: #ff2b2b;
       --ph: #111111;
@@ -170,43 +169,46 @@ PAGE_TEMPLATE = """
       padding: 20px;
       margin-top: 12px;
     }
-    .cards {
-      display: grid;
-      gap: 14px;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      margin-top: 18px;
+    .verdict-banner {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      margin-top: 20px;
+      padding: 18px 22px;
+      border-radius: 16px;
+      border: 2px solid var(--line);
     }
-    .card {
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      padding: 16px;
-      background: rgba(255, 255, 255, 0.75);
+    .verdict-banner.Harmful { border-color: var(--harmful); background: rgba(220,38,38,0.05); }
+    .verdict-banner.Safe    { border-color: var(--safe);    background: rgba(22,163,74,0.05); }
+    .verdict-label {
+      font-size: 2.6rem;
+      font-weight: 700;
+      line-height: 1;
     }
+    .verdict-label.Harmful { color: var(--harmful); }
+    .verdict-label.Safe    { color: var(--safe); }
+    .category-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .category-tag {
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: white;
+    }
+    .category-tag.ADD { background: var(--add); }
+    .category-tag.SXL { background: var(--sxl); }
+    .category-tag.PH  { background: var(--ph); color: white; }
+    .category-tag.HH  { background: var(--hh); }
     .decision {
       font-weight: 700;
       margin-bottom: 10px;
     }
-    .card-head {
-      display: flex;
-      align-items: baseline;
-      justify-content: space-between;
-      gap: 12px;
-      margin-bottom: 10px;
-    }
-    .age-title {
-      font-size: 2.16rem;
-      font-weight: 700;
-    }
-    .card-head .decision {
-      margin-bottom: 0;
-      font-size: 2.16rem;
-      letter-spacing: 0.01em;
-      text-align: right;
-      margin-left: auto;
-    }
-    .Allow { color: var(--allow); }
-    .Warn { color: var(--warn); }
-    .Block { color: var(--block); }
+    .Safe    { color: var(--safe); }
+    .Harmful { color: var(--harmful); }
     .error {
       margin-top: 12px;
       font-weight: 700;
@@ -399,11 +401,8 @@ PAGE_TEMPLATE = """
       width: 2px;
       background: rgba(31, 41, 51, 0.45);
     }
-    .marker.warn {
-      background: rgba(192, 86, 33, 0.75);
-    }
-    .marker.block {
-      background: rgba(197, 48, 48, 0.95);
+    .marker.threshold {
+      background: rgba(197, 48, 48, 0.85);
     }
     .score {
       text-align: right;
@@ -471,9 +470,6 @@ PAGE_TEMPLATE = """
       .cue-columns {
         grid-template-columns: 1fr;
       }
-      .cards {
-        grid-template-columns: 1fr;
-      }
       .form-row {
         grid-template-columns: 1fr;
         gap: 6px;
@@ -489,9 +485,6 @@ PAGE_TEMPLATE = """
       .footer-panels {
         grid-template-columns: 1fr;
       }
-      .cards {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
     }
   </style>
 </head>
@@ -501,9 +494,9 @@ PAGE_TEMPLATE = """
       <section class="hero">
         <div class="hero-title">
           <h1>GuardAI Kids</h1>
-          <small>Age-Aware YouTube Content Safety Analyzer</small>
+          <small>YouTube Content Safety Analyzer for Children</small>
         </div>
-        <p>Paste a YouTube link to assess whether the video should be allowed, warned, or blocked for ages 0-4, 5-8, and 9-12.</p>
+        <p>Paste a YouTube link to assess whether the video is safe or harmful for children, with category-level explanations.</p>
       </section>
 
       <section class="panel">
@@ -549,71 +542,69 @@ PAGE_TEMPLATE = """
           </div>
         </div>
 
-        <div class="cards">
-          {% for age_group, rec in result.recommendations.items() %}
-            <article class="card">
-              <div class="card-head">
-                <div class="age-title">Ages {{ age_group.replace('_', '-') }}</div>
-                <div class="decision {{ rec.decision }}">{{ rec.decision }}</div>
-              </div>
-              <div class="chart">
-                {% set policy_thresholds = result.get('policy_thresholds') or default_policy_thresholds %}
-                {% set age_thresholds = policy_thresholds[age_group] %}
-                {% for label in labels_order %}
-                  {% set score = result.get('model_scores', {}).get(label, 0.0) %}
-                  {% set warn_threshold = age_thresholds[label]["warn"] %}
-                  {% set block_threshold = age_thresholds[label]["block"] %}
-                  <div class="row {% if rec.trigger_category == label %}primary{% endif %}">
-                    <div class="label">{{ label }}</div>
-                    <div class="track">
-                      <div class="fill {{ label }}" style="width: {{ '%.2f'|format(score * 100) }}%; {% if rec.trigger_category == label %}height: 20px; top: -2px;{% endif %}"></div>
-                      <div class="marker warn" style="left: {{ '%.2f'|format(warn_threshold * 100) }}%"></div>
-                      <div class="marker block" style="left: {{ '%.2f'|format(block_threshold * 100) }}%"></div>
-                    </div>
-                    <div class="score">{{ '%.0f'|format(score * 100) }}%</div>
-                  </div>
-                {% endfor %}
-              </div>
+        <div class="verdict-banner {{ result.decision }}">
+          <div class="verdict-label {{ result.decision }}">{{ result.decision }}</div>
+          <div class="category-tags">
+            {% for cat in result.categories %}
+              <span class="category-tag {{ cat }}">{{ cat }}</span>
+            {% endfor %}
+            {% if not result.categories %}
+              <span style="color: var(--safe); font-weight:700;">No harm categories detected</span>
+            {% endif %}
+          </div>
+        </div>
 
-              {% if selected_view == 'detailed' %}
-                <ul class="explain">
-                  {% for bullet in rec.explanation_bullets %}
-                    <li>{{ bullet }}</li>
-                  {% endfor %}
-                </ul>
-              {% endif %}
-
-              <div class="cue-box">
-                <div class="cue-title">Evidence Signals</div>
-                <div class="cue-columns">
-                  <div>
-                    <strong>Text cues</strong>
-                    <ul class="cue-list">
-                      {% if rec.top_tokens %}
-                        {% for token in rec.top_tokens[:4] %}
-                          <li>{{ token.token }}</li>
-                        {% endfor %}
-                      {% else %}
-                        <li>No dominant text cue surfaced.</li>
-                      {% endif %}
-                    </ul>
-                  </div>
-                  <div>
-                    <strong>Image cues</strong>
-                    <ul class="cue-list">
-                      {% if rec.image_highlights %}
-                        {% for cue in rec.image_highlights[:4] %}
-                          <li>{{ cue.label }}{% if cue.score is defined %} ({{ '%.0f'|format(cue.score * 100) }}%){% endif %}</li>
-                        {% endfor %}
-                      {% else %}
-                        <li>No dominant thumbnail cue surfaced.</li>
-                      {% endif %}
-                    </ul>
-                  </div>
-                </div>
+        <div class="chart" style="margin-top:20px;">
+          {% for label in labels_order %}
+            {% set score = result.get('model_scores', {}).get(label, 0.0) %}
+            {% set threshold = result.training_metadata.get('f2_thresholds', {}).get(label, 0.3) %}
+            <div class="row {% if result.trigger_category == label %}primary{% endif %}">
+              <div class="label">{{ label }}</div>
+              <div class="track">
+                <div class="fill {{ label }}" style="width: {{ '%.2f'|format(score * 100) }}%; {% if result.trigger_category == label %}height: 20px; top: -2px;{% endif %}"></div>
+                <div class="marker threshold" style="left: {{ '%.2f'|format(threshold * 100) }}%"></div>
               </div>
-            </article>
+              <div class="score">{{ '%.0f'|format(score * 100) }}%</div>
+            </div>
           {% endfor %}
+        </div>
+
+        {% if selected_view == 'detailed' %}
+          <ul class="explain">
+            {% for bullet in result.explanation_bullets %}
+              <li>{{ bullet }}</li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+
+        <div class="cue-box" style="margin-top:18px;">
+          <div class="cue-title">Evidence Signals</div>
+          <div class="cue-columns">
+            <div>
+              <strong>Text cues</strong>
+              <ul class="cue-list">
+                {% if result.top_tokens %}
+                  {% for token in result.top_tokens[:4] %}
+                    <li>{{ token.token }}</li>
+                  {% endfor %}
+                {% else %}
+                  <li>No dominant text cue surfaced.</li>
+                {% endif %}
+              </ul>
+            </div>
+            <div>
+              <strong>Image cues</strong>
+              <ul class="cue-list">
+                {% if result.image_highlights %}
+                  {% for cue in result.image_highlights[:4] %}
+                    <li>{{ cue.label }}{% if cue.score is defined %} ({{ '%.0f'|format(cue.score * 100) }}%){% endif %}</li>
+                  {% endfor %}
+                {% else %}
+                  <li>No dominant thumbnail cue surfaced.</li>
+                {% endif %}
+              </ul>
+            </div>
+          </div>
         </div>
 
         {% if selected_view == 'detailed' %}
@@ -624,7 +615,7 @@ PAGE_TEMPLATE = """
             </section>
           {% endif %}
           <div class="summary-box">
-            <strong>Global Model Scores:</strong>
+            <strong>Model Scores:</strong>
             {% for label in labels_order %}
               <span>{{ label }}={{ '%.0f'|format(result.get('model_scores', {}).get(label, 0.0) * 100) }}%</span>{% if not loop.last %} | {% endif %}
             {% endfor %}
@@ -663,16 +654,12 @@ PAGE_TEMPLATE = """
             <strong>Decision Guide</strong>
             <div class="decision-legend-grid">
               <div>
-                <span class="decision-pill Allow">ALLOW</span>
-                <span class="meta"> - Content appears acceptable for that age group under the current policy.</span>
+                <span class="decision-pill Safe">SAFE</span>
+                <span class="meta"> - No harm category exceeded the detection threshold. Content appears appropriate for children.</span>
               </div>
               <div>
-                <span class="decision-pill Warn">WARN</span>
-                <span class="meta"> - Some risk is present, so parental review or caution is recommended.</span>
-              </div>
-              <div>
-                <span class="decision-pill Block">BLOCK</span>
-                <span class="meta"> - Risk is high enough that the content should not be shown to that age group.</span>
+                <span class="decision-pill Harmful">HARMFUL</span>
+                <span class="meta"> - One or more harm categories exceeded the threshold. Category tags indicate what was detected.</span>
               </div>
             </div>
           </section>
@@ -729,7 +716,6 @@ def index():
         labels_order=LABELS_ORDER,
         category_descriptions=CATEGORY_DESCRIPTIONS,
         category_colors=CATEGORY_COLORS,
-        default_policy_thresholds=get_default_thresholds(selected_mode),
     )
 
 

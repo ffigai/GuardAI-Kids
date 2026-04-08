@@ -18,6 +18,8 @@ from guardaikids.config import (
 )
 from guardaikids.policy import get_policy_decision
 
+
+
 SUPPORTED_XAI_METHODS = {"gradient_tokens"}
 
 
@@ -103,10 +105,6 @@ def explain_text_tokens(
     ][:top_k]
 
 
-def format_age(age_group: str) -> str:
-    return age_group.replace("_", "-")
-
-
 def _short_prompt_label(prompt: str) -> str:
     lowered = prompt.lower()
     for phrase in [
@@ -146,31 +144,29 @@ def summarize_image_attributes(image_features, top_k: int = 3) -> list[dict[str,
     ]
 
 
-def summarize_risk_categories(probs_row, age_group: str, mode: str, thresholds=None, top_k: int = 3) -> list[dict[str, object]]:
-    thresholds = thresholds or get_default_thresholds(mode)
-    warned = []
+def summarize_risk_categories(probs_row, mode: str, thresholds: dict | None = None, top_k: int = 3) -> list[dict[str, object]]:
+    resolved = thresholds or get_default_thresholds(mode)
+    fired = []
     for index, label in enumerate(LABELS_ORDER):
         probability = float(probs_row[index])
-        warn_threshold = float(thresholds[age_group][label]["warn"])
-        if probability >= warn_threshold:
-            warned.append(
-                {
-                    "label": label,
-                    "description": CATEGORY_DESCRIPTIONS[label],
-                    "probability": probability,
-                    "warn_threshold": warn_threshold,
-                }
-            )
-    warned.sort(key=lambda item: item["probability"], reverse=True)
-    if warned:
-        return warned[:top_k]
+        threshold = float(resolved[label])
+        if probability >= threshold:
+            fired.append({
+                "label": label,
+                "description": CATEGORY_DESCRIPTIONS[label],
+                "probability": probability,
+                "threshold": threshold,
+            })
+    fired.sort(key=lambda item: item["probability"], reverse=True)
+    if fired:
+        return fired[:top_k]
 
     ranked = [
         {
             "label": label,
             "description": CATEGORY_DESCRIPTIONS[label],
             "probability": float(probs_row[index]),
-            "warn_threshold": float(thresholds[age_group][label]["warn"]),
+            "threshold": float(resolved[label]),
         }
         for index, label in enumerate(LABELS_ORDER)
     ]
@@ -180,19 +176,16 @@ def summarize_risk_categories(probs_row, age_group: str, mode: str, thresholds=N
 
 def should_surface_supporting_cues(
     probs_row,
-    age_group: str,
     mode: str,
     decision: str,
-    thresholds=None,
+    thresholds: dict | None = None,
     margin: float = 0.03,
 ) -> bool:
-    if decision != "Allow":
+    if decision != "Safe":
         return True
-    thresholds = thresholds or get_default_thresholds(mode)
+    resolved = thresholds or get_default_thresholds(mode)
     for index, label in enumerate(LABELS_ORDER):
-        probability = float(probs_row[index])
-        warn_threshold = float(thresholds[age_group][label]["warn"])
-        if probability >= warn_threshold - margin:
+        if float(probs_row[index]) >= float(resolved[label]) - margin:
             return True
     return False
 
@@ -212,7 +205,6 @@ def infer_modality_summary(mode: str, top_tokens, image_highlights) -> str:
 
 
 def build_explanation_bullets(
-    age_group: str,
     policy_info: dict[str, object],
     risk_categories: list[dict[str, object]],
     modality_summary: str,
@@ -220,24 +212,24 @@ def build_explanation_bullets(
     image_highlights,
     show_supporting_cues: bool,
 ) -> list[str]:
-    bullets = [f"Decision: {policy_info['decision']} for ages {format_age(age_group)}."]
+    bullets = [f"Decision: {policy_info['decision']}."]
 
     if risk_categories and show_supporting_cues:
         category_text = "; ".join(
             f"{item['label']} ({item['probability']:.2f})" for item in risk_categories[:3]
         )
-        bullets.append(f"Highest detected risk categories: {category_text}.")
+        bullets.append(f"Detected risk categories: {category_text}.")
 
-    if policy_info["category"] is not None:
+    if policy_info["trigger_category"] is not None:
         bullets.append(
-            f"Primary trigger: {policy_info['category']} at {policy_info['probability']:.2f} "
+            f"Primary trigger: {policy_info['trigger_category']} at {policy_info['probability']:.2f} "
             f"against a threshold of {policy_info['threshold']:.2f}."
         )
     else:
-        bullets.append("No category exceeded the current age-specific warning threshold.")
+        bullets.append("No category exceeded the detection threshold.")
 
     if not show_supporting_cues:
-        bullets.append("No text or thumbnail cue exceeded the current warning threshold.")
+        bullets.append("No text or thumbnail cue exceeded the detection threshold.")
         return bullets
 
     bullets.append(modality_summary)
@@ -261,26 +253,20 @@ def format_bullets_as_text(bullets: list[str]) -> str:
 def explain_video(
     text: str,
     probs_row,
-    age_group: str,
     model,
     tokenizer,
-    thresholds=None,
+    thresholds: dict | None = None,
     image_features=None,
     xai_method: str | None = None,
 ) -> dict[str, object]:
     mode = getattr(model, "mode", MODE)
-    policy_info = get_policy_decision(
-        probs_row,
-        age_group,
-        thresholds=thresholds,
-        mode=mode,
-    )
-    risk_categories = summarize_risk_categories(probs_row, age_group, mode, thresholds=thresholds)
+    policy_info = get_policy_decision(probs_row, thresholds=thresholds, mode=mode)
+    risk_categories = summarize_risk_categories(probs_row, mode, thresholds=thresholds)
     image_highlights = summarize_image_attributes(image_features)
 
     top_tokens = []
     if mode != "image":
-        chosen_category = policy_info["category"] or (risk_categories[0]["label"] if risk_categories else None)
+        chosen_category = policy_info["trigger_category"] or (risk_categories[0]["label"] if risk_categories else None)
         if chosen_category is not None:
             category_index = LABELS_ORDER.index(chosen_category)
             top_tokens = explain_text_tokens(
@@ -294,7 +280,6 @@ def explain_video(
 
     show_supporting_cues = should_surface_supporting_cues(
         probs_row,
-        age_group=age_group,
         mode=mode,
         decision=policy_info["decision"],
         thresholds=thresholds,
@@ -305,7 +290,6 @@ def explain_video(
 
     modality_summary = infer_modality_summary(mode, top_tokens, image_highlights)
     bullets = build_explanation_bullets(
-        age_group=age_group,
         policy_info=policy_info,
         risk_categories=risk_categories,
         modality_summary=modality_summary,
@@ -315,9 +299,9 @@ def explain_video(
     )
 
     return {
-        "age_group": age_group,
         "decision": policy_info["decision"],
-        "trigger_category": policy_info["category"],
+        "categories": policy_info["categories"],
+        "trigger_category": policy_info["trigger_category"],
         "probability": policy_info["probability"],
         "threshold": policy_info["threshold"],
         "top_tokens": top_tokens,

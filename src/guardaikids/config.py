@@ -4,7 +4,6 @@ from pathlib import Path
 
 TARGET_LABELS = ["ADD", "SXL", "PH", "HH"]
 LABELS_ORDER = TARGET_LABELS.copy()
-AGE_GROUPS = ["0_4", "5_8", "9_12"]
 MODEL_NAME = "distilroberta-base"
 MODE = "multimodal" # "text", "image", or "multimodal"
 MAX_LENGTH = 512
@@ -42,75 +41,13 @@ IMAGE_FEATURE_DIMS = {
 }
 IMAGE_FEATURE_DIM = IMAGE_FEATURE_DIMS[IMAGE_ANALYSIS_MODEL]
 
-TEXT_THRESHOLDS = {
-    "0_4": {
-        "ADD": {"warn": 0.15, "block": 0.95},
-        "SXL": {"warn": 0.10, "block": 0.70},
-        "PH": {"warn": 0.10, "block": 0.80},
-        "HH": {"warn": 0.20, "block": 0.80},
-    },
-    "5_8": {
-        "ADD": {"warn": 0.20, "block": 0.97},
-        "SXL": {"warn": 0.15, "block": 0.80},
-        "PH": {"warn": 0.15, "block": 0.85},
-        "HH": {"warn": 0.20, "block": 0.85},
-    },
-    "9_12": {
-        "ADD": {"warn": 0.25, "block": 0.98},
-        "SXL": {"warn": 0.20, "block": 0.85},
-        "PH": {"warn": 0.20, "block": 0.90},
-        "HH": {"warn": 0.25, "block": 0.90},
-    },
+# Default f2 thresholds per mode — recall-weighted, loaded from artifact metadata at runtime.
+# These are fallbacks used when no artifact is loaded (e.g. tests, CLI without --artifact-dir).
+DEFAULT_F2_THRESHOLDS = {
+    "text":       {"ADD": 0.25, "SXL": 0.45, "PH": 0.30, "HH": 0.15},
+    "image":      {"ADD": 0.30, "SXL": 0.30, "PH": 0.30, "HH": 0.20},
+    "multimodal": {"ADD": 0.40, "SXL": 0.30, "PH": 0.20, "HH": 0.20},
 }
-
-IMAGE_THRESHOLDS = {
-    "0_4": {
-        "ADD": {"warn": 0.22, "block": 0.45},
-        "SXL": {"warn": 0.12, "block": 0.28},
-        "PH": {"warn": 0.18, "block": 0.35},
-        "HH": {"warn": 0.14, "block": 0.30},
-    },
-    "5_8": {
-        "ADD": {"warn": 0.26, "block": 0.52},
-        "SXL": {"warn": 0.16, "block": 0.34},
-        "PH": {"warn": 0.22, "block": 0.40},
-        "HH": {"warn": 0.18, "block": 0.36},
-    },
-    "9_12": {
-        "ADD": {"warn": 0.30, "block": 0.58},
-        "SXL": {"warn": 0.20, "block": 0.40},
-        "PH": {"warn": 0.26, "block": 0.46},
-        "HH": {"warn": 0.22, "block": 0.42},
-    },
-}
-
-MULTIMODAL_THRESHOLDS = {
-    "0_4": {
-        "ADD": {"warn": 0.18, "block": 0.90},
-        "SXL": {"warn": 0.12, "block": 0.68},
-        "PH": {"warn": 0.12, "block": 0.78},
-        "HH": {"warn": 0.22, "block": 0.78},
-    },
-    "5_8": {
-        "ADD": {"warn": 0.22, "block": 0.94},
-        "SXL": {"warn": 0.16, "block": 0.78},
-        "PH": {"warn": 0.16, "block": 0.83},
-        "HH": {"warn": 0.22, "block": 0.83},
-    },
-    "9_12": {
-        "ADD": {"warn": 0.28, "block": 0.96},
-        "SXL": {"warn": 0.22, "block": 0.84},
-        "PH": {"warn": 0.22, "block": 0.88},
-        "HH": {"warn": 0.28, "block": 0.88},
-    },
-}
-
-DEFAULT_THRESHOLDS_BY_MODE = {
-    "text": TEXT_THRESHOLDS,
-    "image": IMAGE_THRESHOLDS,
-    "multimodal": MULTIMODAL_THRESHOLDS,
-}
-DEFAULT_THRESHOLDS = DEFAULT_THRESHOLDS_BY_MODE["text"]
 
 CATEGORY_DESCRIPTIONS = {
     "ADD": "addictive or substance-related content",
@@ -143,5 +80,5 @@ def default_artifact_dir() -> Path:
     return Path(__file__).resolve().parents[2] / "artifacts"
 
 
-def get_default_thresholds(mode: str | None = None):
-    return DEFAULT_THRESHOLDS_BY_MODE.get(mode or MODE, DEFAULT_THRESHOLDS)
+def get_default_thresholds(mode: str | None = None) -> dict[str, float]:
+    return DEFAULT_F2_THRESHOLDS.get(mode or MODE, DEFAULT_F2_THRESHOLDS["multimodal"])

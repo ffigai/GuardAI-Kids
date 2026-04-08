@@ -5,7 +5,7 @@ from pathlib import Path
 
 import numpy as np
 
-from guardaikids.config import IMAGE_ANALYSIS_MODEL, IMAGE_FEATURE_DIMS, LABELS_ORDER, MODE, MODEL_NAME, get_default_thresholds
+from guardaikids.config import IMAGE_ANALYSIS_MODEL, IMAGE_FEATURE_DIMS, LABELS_ORDER, MODE, MODEL_NAME
 from guardaikids.data import load_raw_data, prepare_model_dataframe, split_train_validation, to_hf_dataset
 from guardaikids.modeling import (
     apply_thresholds,
@@ -76,7 +76,7 @@ def run_training_workflow(
     tuned_predictions = apply_thresholds(outputs["probs"], f2_thresholds)
     tuned_summary = summarize_validation_metrics(outputs["labels"], outputs["probs"], tuned_predictions)
 
-    decision_df = build_decision_dataframe(outputs["probs"], mode=mode)
+    decision_df = build_decision_dataframe(outputs["probs"], thresholds=f2_thresholds, mode=mode)
     policy_metrics = evaluate_policy(decision_df, outputs["labels"])
     protection_metrics = evaluate_protection(decision_df, outputs["labels"])
 
@@ -126,7 +126,6 @@ def save_training_artifacts(
         "validation_size": int(len(results["val_df"])),
         "f1_thresholds": results["f1_thresholds"],
         "f2_thresholds": results["f2_thresholds"],
-        "policy_thresholds": get_default_thresholds(mode),
         "policy_metrics": results["policy_metrics"],
         "protection_metrics": results["protection_metrics"],
         "roc_auc": results["default_summary"]["roc_auc"],

@@ -8,9 +8,6 @@ __pycache__/
 *.pyc
 *.egg-info/
 
-# Claude Code memory (personal)
-.claude/
-
 # Training checkpoints and intermediate results
 results/
 

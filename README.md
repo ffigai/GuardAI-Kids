@@ -1,7 +1,7 @@
 # GuardAI Kids
 
 ```mermaid
-%%{init: {'theme': 'default'}}%%
+%%{init: {'theme': 'base', 'themeVariables': { 'background': '#ffffff', 'clusterBkg': '#ffffff', 'primaryColor': '#ffffff', 'secondaryColor': '#ffffff', 'tertiaryColor': '#ffffff' }}}%%
 flowchart LR
     URL([YouTube URL])
 

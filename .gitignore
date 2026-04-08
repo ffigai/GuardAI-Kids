@@ -21,8 +21,22 @@ artifacts/tokenizer/
 # Pip temp dirs that accidentally ended up in artifacts/
 artifacts/pip-*/
 
-# Artifact reports and snapshots — kept in git
-# (do not ignore artifacts/reports/ or artifacts/*/metadata.json)
+# Intermediate experiment artifacts — only final three variants kept
+artifacts/image/
+artifacts/image_clip_ocr/
+artifacts/multimodal/
+artifacts/multimodal_clip_ocr/
+artifacts/metadata.json
+artifacts/token_length_report.json
+
+# Old policy/overview report files superseded by snapshot
+artifacts/reports/block_precision_by_age.png
+artifacts/reports/block_recall_by_age.png
+artifacts/reports/protection_rate_by_age.png
+artifacts/reports/policy_metrics_by_age.csv
+artifacts/reports/overview.csv
+artifacts/reports/roc_auc_by_label.csv
+artifacts/reports/summary_report.md
 
 # Backup directories
 artifacts_backup_*/

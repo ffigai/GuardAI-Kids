@@ -1,7 +1,7 @@
 # GuardAI Kids
 <img width="8192" height="2367" alt="hi level diagram-2026-03-23-004627" src="https://github.com/user-attachments/assets/df0fe83f-5c20-4390-8190-52e9b718bc36" />
 
-GuardAI Kids is an age-aware YouTube content safety analyzer. Given a YouTube URL, it recommends `ALLOW`, `WARN`, or `BLOCK` for three child age groups — `0–4`, `5–8`, and `9–12` — across four harm categories: addictive content (ADD), sexual/explicit material (SXL), physical harm (PH), and hate/harassment (HH).
+GuardAI Kids is a YouTube content safety analyzer for children. Given a YouTube URL, it classifies the video as **Safe** or **Harmful** across four harm categories: addictive content (ADD), sexual/explicit material (SXL), physical harm (PH), and hate/harassment (HH). When harmful content is detected, the system surfaces which categories fired and provides supporting evidence from text and thumbnail signals.
 
 ## How It Works
 
@@ -13,19 +13,15 @@ The system supports three analysis modes:
 | `image` | Thumbnail image features (CLIP + NSFW + violence classifiers) |
 | `multimodal` | Text and image combined via a fusion layer |
 
-Each mode runs a trained multi-label classifier and applies an age-aware policy to produce per-age-group recommendations with supporting evidence cues.
+Each mode runs a trained multi-label classifier over four harm categories. Thresholds are recall-weighted (F2-optimized) and loaded from each artifact at runtime.
 
-## Model Performance (Validation Set)
+## Model Performance (Validation Set, n = 2,767)
 
 | Model | Mean AUC | Macro F1 |
 |---|---|---|
-| text | 0.938 | — |
-| image — clip | 0.778 | 0.519 |
-| image — clip_ocr | 0.845 | 0.591 |
-| image — clip_nsfw_violence | 0.846 | 0.594 |
-| multimodal — clip | 0.935 | — |
-| multimodal — clip_ocr | — | — |
-| multimodal — clip_nsfw_violence | — | — |
+| text only | 0.939 | 0.783 |
+| image — clip_nsfw_violence | 0.846 | 0.586 |
+| multimodal — clip_nsfw_violence | 0.935 | 0.782 |
 
 Full comparison graphs are in `artifacts/reports/`.
 
@@ -34,7 +30,7 @@ Full comparison graphs are in `artifacts/reports/`.
 - `src/guardaikids/` — all modules: data, modeling, policy, explainability, workflow, YouTube integration, CLI, web UI
 - `scripts/` — dataset preparation, image feature extraction, report generation, results snapshot
 - `data/` — place `Harmful.xlsx` and `Harmless.xlsx` here
-- `artifacts/` — per-configuration metadata, predictions, and evaluation reports (model weights excluded — regenerate by training)
+- `artifacts/` — final artifact directories (`text`, `image_clip_nsfw_violence`, `multimodal_clip_nsfw_violence`) with metadata, predictions, and evaluation reports (model weights excluded — regenerate by training)
 - `tests/` — lightweight regression tests
 
 ## Requirements
@@ -86,25 +82,16 @@ data/Harmless.xlsx
 python -m guardaikids train --mode text --artifact-dir artifacts/text
 ```
 
-### Image modes
+### Image mode
 
 ```powershell
-# Step 1 — extract features (choose one pipeline)
-python scripts/extract_image_features.py --image-analysis-model clip
-python scripts/extract_image_features.py --image-analysis-model clip_ocr
 python scripts/extract_image_features.py --image-analysis-model clip_nsfw_violence
-
-# Step 2 — train
-python -m guardaikids train --mode image --image-analysis-model clip --artifact-dir artifacts/image
-python -m guardaikids train --mode image --image-analysis-model clip_ocr --artifact-dir artifacts/image_clip_ocr
 python -m guardaikids train --mode image --image-analysis-model clip_nsfw_violence --artifact-dir artifacts/image_clip_nsfw_violence
 ```
 
-### Multimodal modes
+### Multimodal mode
 
 ```powershell
-python -m guardaikids train --mode multimodal --image-analysis-model clip --artifact-dir artifacts/multimodal
-python -m guardaikids train --mode multimodal --image-analysis-model clip_ocr --artifact-dir artifacts/multimodal_clip_ocr
 python -m guardaikids train --mode multimodal --image-analysis-model clip_nsfw_violence --artifact-dir artifacts/multimodal_clip_nsfw_violence
 ```
 
@@ -126,7 +113,7 @@ Outputs go to `artifacts/reports/`.
 python -m guardaikids.web_interface
 ```
 
-Open `http://127.0.0.1:5000`. Select `text`, `image`, or `multimodal` — image and multimodal use the `clip_nsfw_violence` artifact by default.
+Open `http://127.0.0.1:5000`. Select `text`, `image`, or `multimodal`.
 
 ## CLI Analysis
 
@@ -157,4 +144,4 @@ python -m unittest discover -s tests -v
 
 - Model weights are not committed (too large). Run training to regenerate them.
 - `artifacts/*/metadata.json` and `predictions_*.json` are committed and contain all evaluation metrics.
-- Policy and threshold changes can be reevaluated from saved predictions without retraining using `scripts/reevaluate_policy_from_predictions.py`.
+- Decision thresholds can be reevaluated from saved predictions without retraining using `scripts/reevaluate_policy_from_predictions.py`.

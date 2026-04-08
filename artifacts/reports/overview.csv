@@ -1,4 +1,0 @@
-mode,model_name,train_size,validation_size,image_feature_dim
-text,distilroberta-base,11068,2767,518
-image,distilroberta-base,11068,2767,526
-multimodal,distilroberta-base,11068,2767,526

@@ -34,12 +34,6 @@ The following were removed: `artifacts/image/`, `artifacts/image_clip_ocr/`, `ar
 
 ---
 
-### Removed: `.claude/` configuration folder
-
-The `.claude/` directory and its `.gitignore` entry have been removed from the repository.
-
----
-
 ### Updated: documentation
 
 `README.md`, `PROJECT_SUMMARY.md`, and `SYSTEM_DIAGRAM.md` updated to reflect the current system architecture, the three final artifact configurations, and the 537-dim `clip_nsfw_violence` feature vector layout.

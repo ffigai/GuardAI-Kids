@@ -1,55 +1,7 @@
 # GuardAI Kids
 
-```mermaid
----
-config:
-  theme: base
-  themeVariables:
-    background: '#ffffff'
-    clusterBkg: '#ffffff'
-    primaryColor: '#ffffff'
-    secondaryColor: '#ffffff'
-    tertiaryColor: '#ffffff'
-  layout: fixed
----
-flowchart LR
- subgraph EXT["Data Extraction"]
-        E1["Title"]
-        E2["Description"]
-        E3["Channel Name"]
-        E4["Transcript"]
-        E5["Thumbnail URL"]
-  end
- subgraph PREP["Data Preparation"]
-        P1["Text Preparation"]
-        P2["Thumbnail Retrieval and Image Feature Extraction"]
-  end
- subgraph ANALYSIS["Data Analysis"]
-        A1["Text Analysis - DistilRoBERTa"]
-        A2["Multimodal Analysis - Text + Image Fusion MLP"]
-        A3["Image Analysis - CLIP + NSFW + Violence"]
-        SCORES["Multi-Label Risk Scores - ADD, SXL, PH, HH"]
-  end
- subgraph OUT["Final Output"]
-        O1["Safe / Harmful + Category Tags"]
-        O2["Text Evidence"]
-        O3["Image Evidence"]
-  end
-    URL(["YouTube URL"]) --> EXT
-    E1 --> P1
-    E2 --> P1
-    E3 --> P1
-    E4 --> P1
-    E5 --> P2
-    P1 --> A1
-    P2 --> A3
-    A1 --> A2 & SCORES
-    A3 --> A2 & SCORES
-    A2 --> SCORES
-    SCORES --> POLICY["Policy Decision - F2 Threshold Comparison"] & XAI["Explainability Layer"]
-    POLICY --> O1
-    XAI --> O2 & O3
-```
+<img width="8192" height="2077" alt="ETP-SYS-Diag" src="https://github.com/user-attachments/assets/c5aa6260-d74d-4859-8333-4bf6b4140fb7" />
+
 
 GuardAI Kids is a YouTube content safety analyzer for children. Given a YouTube URL, it classifies the video as **Safe** or **Harmful** across four harm categories: addictive content (ADD), sexual/explicit material (SXL), physical harm (PH), and hate/harassment (HH). When harmful content is detected, the system surfaces which categories fired and provides supporting evidence from text and thumbnail signals.
 

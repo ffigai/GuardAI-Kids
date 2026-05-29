@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GuardAI Kids</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 13px;
+      width: 320px;
+      padding: 14px 16px 16px;
+      background: #fff;
+      color: #222;
+    }
+
+    h1 {
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .verdict-banner {
+      padding: 10px 14px;
+      border-radius: 8px;
+      border-width: 2px;
+      border-style: solid;
+      font-weight: 600;
+      font-size: 13px;
+      margin-bottom: 10px;
+    }
+    .verdict-safe    { border-color: #2ecc71; background: #e6f9ec; color: #1a7a43; }
+    .verdict-harmful { border-color: #e74c3c; background: #fdecea; color: #8b1a1a; }
+    .verdict-none    { border-color: #aaa;    background: #f5f5f5; color: #666;    }
+
+    .badge {
+      display: inline-block;
+      background: #e74c3c;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 12px;
+      margin: 0 2px;
+      vertical-align: middle;
+    }
+
+    .scores { margin-bottom: 10px; }
+    .score-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 4px 0;
+      font-size: 12px;
+    }
+    .score-label { width: 30px; font-weight: 700; color: #444; }
+    .score-track {
+      flex: 1;
+      height: 8px;
+      background: #ddd;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .score-fill {
+      height: 100%;
+      background: #e74c3c;
+      border-radius: 4px;
+      transition: width 0.4s ease;
+    }
+    .score-value { width: 36px; text-align: right; color: #666; }
+
+    #video-info { margin-bottom: 8px; }
+    #video-title { font-size: 12px; font-weight: 600; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #video-channel { font-size: 11px; color: #888; margin-top: 1px; }
+    hr { border: none; border-top: 1px solid #eee; margin: 10px 0; }
+
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: #555;
+      margin-bottom: 4px;
+    }
+    select {
+      width: 100%;
+      padding: 6px 8px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 13px;
+      background: #fafafa;
+      margin-bottom: 10px;
+      cursor: pointer;
+    }
+    select:focus { outline: 2px solid #2ecc71; outline-offset: 1px; }
+
+    button#reanalyse-btn {
+      width: 100%;
+      padding: 8px;
+      background: #2ecc71;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    button#reanalyse-btn:hover:not(:disabled) { background: #27ae60; }
+    button#reanalyse-btn:disabled { background: #aaa; cursor: not-allowed; }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .toggle-row label {
+      margin-bottom: 0;
+      font-size: 13px;
+      color: #222;
+      cursor: pointer;
+    }
+    .toggle-switch {
+      position: relative;
+      width: 36px;
+      height: 20px;
+      flex-shrink: 0;
+    }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-track {
+      position: absolute;
+      inset: 0;
+      background: #ccc;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .toggle-track::before {
+      content: '';
+      position: absolute;
+      width: 14px;
+      height: 14px;
+      left: 3px;
+      top: 3px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform 0.2s;
+    }
+    .toggle-switch input:checked + .toggle-track { background: #e74c3c; }
+    .toggle-switch input:checked + .toggle-track::before { transform: translateX(16px); }
+
+    .timestamp {
+      font-size: 11px;
+      color: #999;
+      text-align: right;
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+  <h1>&#x1F6E1;&#xFE0F; GuardAI Kids</h1>
+
+  <div id="verdict-banner" class="verdict-banner verdict-none">Loading&hellip;</div>
+  <div id="video-info" hidden>
+    <div id="video-title"></div>
+    <div id="video-channel"></div>
+  </div>
+  <div id="scores-container" class="scores" hidden></div>
+
+  <hr>
+
+  <div class="toggle-row">
+    <label for="block-toggle">Block harmful videos</label>
+    <label class="toggle-switch">
+      <input type="checkbox" id="block-toggle">
+      <span class="toggle-track"></span>
+    </label>
+  </div>
+
+  <label for="mode-select">Analysis mode</label>
+  <select id="mode-select">
+    <option value="text">Text only</option>
+    <option value="image">Image only</option>
+    <option value="multimodal">Multimodal</option>
+  </select>
+
+  <button id="reanalyse-btn">Re-analyse</button>
+
+  <div class="timestamp" id="timestamp"></div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

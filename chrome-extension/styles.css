@@ -1,0 +1,233 @@
+/* ── GuardAI Kids — all selectors scoped to prevent YouTube style bleed ── */
+
+/* ─── Verdict banner (below player) ──────────────────────────────────────── */
+
+#guardai-overlay {
+  all: initial;
+  display: block;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #1a1a1a;
+  margin: 10px 0;
+  border-radius: 10px;
+  border-width: 2px;
+  border-style: solid;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+  overflow: hidden;
+  position: relative;
+  z-index: 9999;
+}
+
+#guardai-overlay.guardai-safe    { border-color: #2ecc71; background: #e6f9ec; }
+#guardai-overlay.guardai-harmful { border-color: #e74c3c; background: #fdecea; }
+#guardai-overlay.guardai-loading { border-color: #aaa;    background: #f5f5f5; }
+#guardai-overlay.guardai-error   { border-color: #f39c12; background: #fff8e1; }
+
+/* Header row */
+#guardai-overlay .guardai-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+}
+
+#guardai-overlay .guardai-verdict-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  flex-wrap: wrap;
+}
+
+#guardai-overlay .guardai-verdict-icon { font-size: 18px; line-height: 1; }
+
+#guardai-overlay .guardai-verdict-text {
+  font-weight: 700;
+  font-size: 14px;
+  color: #111;
+}
+
+#guardai-overlay .guardai-badge-group { display: flex; gap: 4px; flex-wrap: wrap; }
+
+/* Category badges */
+#guardai-overlay .guardai-badge,
+#guardai-player-overlay .guardai-badge {
+  display: inline-block;
+  background: #e74c3c;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 9px;
+  border-radius: 12px;
+  vertical-align: middle;
+}
+#guardai-overlay .guardai-badge-lg,
+#guardai-player-overlay .guardai-badge-lg {
+  font-size: 13px;
+  padding: 4px 14px;
+  border-radius: 16px;
+}
+
+/* Actions */
+#guardai-overlay .guardai-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+#guardai-overlay .guardai-btn {
+  all: initial;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 3px 10px;
+  border-radius: 5px;
+  border: 1px solid rgba(0,0,0,0.18);
+  background: rgba(255,255,255,0.75);
+  color: #333;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+#guardai-overlay .guardai-btn:hover { background: rgba(255,255,255,1); }
+
+/* Video meta (title · channel) */
+#guardai-overlay .guardai-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px 9px;
+  flex-wrap: wrap;
+}
+#guardai-overlay .guardai-meta-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #222;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 460px;
+}
+#guardai-overlay .guardai-meta-sep   { font-size: 11px; color: #bbb; }
+#guardai-overlay .guardai-meta-channel { font-size: 12px; color: #666; white-space: nowrap; }
+
+/* Collapsible details */
+#guardai-overlay .guardai-details {
+  padding: 8px 14px 12px;
+  border-top: 1px solid rgba(0,0,0,0.07);
+}
+#guardai-overlay .guardai-details[hidden] { display: none; }
+
+/* Score bars */
+#guardai-overlay .guardai-scores { display: flex; flex-direction: column; gap: 7px; margin-bottom: 8px; }
+#guardai-overlay .guardai-score-row { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+#guardai-overlay .guardai-score-label { width: 32px; font-weight: 700; color: #444; flex-shrink: 0; }
+#guardai-overlay .guardai-score-track {
+  flex: 1; height: 8px; background: #ddd; border-radius: 4px; overflow: hidden;
+}
+#guardai-overlay .guardai-score-fill {
+  height: 100%; background: #e74c3c; border-radius: 4px; transition: width 0.4s ease;
+}
+#guardai-overlay .guardai-score-value { width: 36px; text-align: right; font-size: 11px; color: #666; flex-shrink: 0; }
+
+/* Text cues */
+#guardai-overlay .guardai-cues { font-size: 12px; color: #555; margin-top: 4px; }
+#guardai-overlay .guardai-cue-token {
+  display: inline-block; background: rgba(0,0,0,0.06); border-radius: 3px;
+  padding: 0 4px; margin: 1px; font-family: monospace;
+}
+
+/* Loading spinner */
+#guardai-overlay .guardai-spinner {
+  width: 18px; height: 18px;
+  border: 3px solid #ccc; border-top-color: #555;
+  border-radius: 50%;
+  animation: guardai-spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes guardai-spin { to { transform: rotate(360deg); } }
+
+/* ─── Full-player blocked overlay ─────────────────────────────────────────── */
+
+#guardai-player-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 99999;
+  background: linear-gradient(160deg, #1a0000 0%, #3b0a0a 60%, #5c1010 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+#guardai-player-overlay .guardai-blocked-inner {
+  text-align: center;
+  padding: 32px 40px;
+  max-width: 560px;
+  color: #fff;
+}
+
+#guardai-player-overlay .guardai-blocked-icon {
+  font-size: 56px;
+  margin-bottom: 14px;
+  line-height: 1;
+}
+
+#guardai-player-overlay .guardai-blocked-heading {
+  font-size: 22px;
+  font-weight: 700;
+  color: #fff;
+  margin: 0 0 6px;
+  line-height: 1.3;
+}
+
+#guardai-player-overlay .guardai-blocked-reason {
+  font-size: 15px;
+  color: #ffb3b3;
+  margin: 0 0 18px;
+}
+
+#guardai-player-overlay .guardai-blocked-badges {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+#guardai-player-overlay .guardai-blocked-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #ffdada;
+  margin: 0 0 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 480px;
+}
+
+#guardai-player-overlay .guardai-blocked-channel {
+  font-size: 12px;
+  color: #cc8888;
+  margin: 0 0 22px;
+}
+
+#guardai-player-overlay .guardai-unblock-btn {
+  all: initial;
+  font-family: inherit;
+  display: inline-block;
+  cursor: pointer;
+  padding: 10px 22px;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.3);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+#guardai-player-overlay .guardai-unblock-btn:hover {
+  background: rgba(255,255,255,0.22);
+}

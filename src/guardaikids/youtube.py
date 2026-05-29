@@ -2,10 +2,6 @@
 
 import re
 
-from guardaikids.config import LABELS_ORDER
-from guardaikids.explainability import explain_video
-from guardaikids.modeling import predict_video_text
-
 
 def _import_youtube_dependencies():
     try:
@@ -74,21 +70,3 @@ def fetch_youtube_metadata(url: str, youtube_client) -> dict[str, str] | None:
 
 def build_model_input(metadata: dict[str, str]) -> str:
     return f"{metadata['title']} {metadata['description']} {metadata['transcript']}".strip()
-
-
-def analyze_youtube_video(url: str, age_group: str, model, tokenizer, youtube_client, thresholds=None):
-    metadata = fetch_youtube_metadata(url, youtube_client)
-    if metadata is None:
-        return {"error": "Video not found"}
-    if getattr(model, "mode", "text") != "text":
-        return {"error": "Image and multimodal inference require precomputed image features."}
-
-    text = build_model_input(metadata)
-    probabilities = predict_video_text(model, tokenizer, text)
-    explanation = explain_video(text, probabilities, age_group, model, tokenizer, thresholds=thresholds)
-
-    return {
-        "metadata": metadata,
-        "harm_probabilities": dict(zip(LABELS_ORDER, probabilities)),
-        "explanation": explanation,
-    }

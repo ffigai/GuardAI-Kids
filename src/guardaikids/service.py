@@ -23,9 +23,21 @@ class AnalysisArtifacts:
     artifact_dir: Path
 
 
-def resolve_artifact_dir(path: str | Path | None = None, mode: str | None = None) -> Path:
+def resolve_artifact_dir(
+    path: str | Path | None = None,
+    mode: str | None = None,
+    image_analysis_model: str | None = None,
+) -> Path:
     configured = path or os.environ.get("ETP_ARTIFACT_DIR")
-    return Path(configured) if configured else default_artifact_dir() / (mode or MODE)
+    if configured:
+        return Path(configured)
+    resolved_mode = mode or MODE
+    if resolved_mode == "text":
+        subdir = "text"
+    else:
+        selected_image_model = image_analysis_model or IMAGE_ANALYSIS_MODEL
+        subdir = f"{resolved_mode}_{selected_image_model}"
+    return default_artifact_dir() / subdir
 
 
 def train_and_save_system(
@@ -46,7 +58,7 @@ def train_and_save_system(
         image_analysis_model=selected_image_model,
         image_feature_dir=image_feature_dir,
     )
-    resolved_dir = resolve_artifact_dir(artifact_dir, mode=selected_mode)
+    resolved_dir = resolve_artifact_dir(artifact_dir, mode=selected_mode, image_analysis_model=selected_image_model)
     save_training_artifacts(
         results,
         resolved_dir,
@@ -65,8 +77,12 @@ def _thresholds_from_artifact(metadata: dict) -> dict | None:
     return {label: float(f2[label]) for label in f2}
 
 
-def load_analysis_artifacts(artifact_dir: str | Path | None = None, mode: str | None = None) -> AnalysisArtifacts:
-    resolved_dir = resolve_artifact_dir(artifact_dir, mode=mode)
+def load_analysis_artifacts(
+    artifact_dir: str | Path | None = None,
+    mode: str | None = None,
+    image_analysis_model: str | None = None,
+) -> AnalysisArtifacts:
+    resolved_dir = resolve_artifact_dir(artifact_dir, mode=mode, image_analysis_model=image_analysis_model)
     metadata_path = resolved_dir / "metadata.json"
     if not metadata_path.exists():
         raise FileNotFoundError(
@@ -78,6 +94,16 @@ def load_analysis_artifacts(artifact_dir: str | Path | None = None, mode: str | 
 
     model_dir = resolved_dir / "model"
     tokenizer_dir = resolved_dir / "tokenizer"
+    if not model_dir.exists():
+        raise FileNotFoundError(
+            f"Model weights not found at {model_dir}. "
+            f"Run: guardaikids train --mode {mode or MODE} to regenerate them."
+        )
+    if not tokenizer_dir.exists():
+        raise FileNotFoundError(
+            f"Tokenizer not found at {tokenizer_dir}. "
+            f"Run: guardaikids train --mode {mode or MODE} to regenerate them."
+        )
     model, tokenizer = load_saved_model(model_dir, tokenizer_dir)
     return AnalysisArtifacts(model=model, tokenizer=tokenizer, metadata=metadata, artifact_dir=resolved_dir)
 
@@ -97,7 +123,7 @@ def analyze_youtube_url(
     if selected_mode not in {"text", "image", "multimodal"}:
         raise ValueError(f"Unsupported mode: {selected_mode}")
 
-    artifacts = load_analysis_artifacts(artifact_dir, mode=selected_mode)
+    artifacts = load_analysis_artifacts(artifact_dir, mode=selected_mode, image_analysis_model=image_analysis_model or IMAGE_ANALYSIS_MODEL)
     youtube_client = build_youtube_client(api_key)
     metadata = fetch_youtube_metadata(url, youtube_client)
     if metadata is None:

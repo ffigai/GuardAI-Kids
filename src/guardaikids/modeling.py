@@ -167,7 +167,7 @@ class MultimodalSequenceClassifier(nn.Module):
         text_encoder = None
         text_encoder_dir = model_dir / "text_encoder"
         if text_encoder_dir.exists():
-            text_encoder = AutoModel.from_pretrained(str(text_encoder_dir))
+            text_encoder = AutoModel.from_pretrained(text_encoder_dir)
 
         model = cls(
             model_name=config["model_name"],
@@ -246,7 +246,7 @@ def build_model(
 
 
 def load_saved_model(model_dir: str | Path, tokenizer_dir: str | Path):
-    tokenizer = AutoTokenizer.from_pretrained(str(tokenizer_dir))
+    tokenizer = AutoTokenizer.from_pretrained(Path(tokenizer_dir))
     model = MultimodalSequenceClassifier.from_pretrained(model_dir)
     return model, tokenizer
 

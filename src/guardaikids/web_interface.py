@@ -720,7 +720,10 @@ def index():
 
 
 def main() -> None:
-    app.run(debug=True)
+    # FastAPI (api.py) runs on port 8000 for the Chrome extension.
+    # This Flask UI uses a separate port so both can run simultaneously.
+    port = int(os.environ.get("GUARDAI_WEB_PORT", 5000))
+    app.run(debug=True, port=port)
 
 
 if __name__ == "__main__":

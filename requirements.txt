@@ -1,6 +1,9 @@
 accelerate>=1.1.0
 easyocr
+huggingface_hub
+Pillow
 python-dotenv
+safetensors
 datasets
 flask
 google-api-python-client
@@ -15,3 +18,6 @@ youtube-transcript-api
 fastapi>=0.111.0
 uvicorn[standard]>=0.29.0
 python-multipart>=0.0.9
+# torch must be installed separately — choose the variant matching your CUDA version:
+#   CPU:        pip install torch --index-url https://download.pytorch.org/whl/cpu
+#   CUDA 12.x:  pip install torch --index-url https://download.pytorch.org/whl/cu121

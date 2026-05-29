@@ -26,11 +26,11 @@ from guardaikids.service import analyze_youtube_url  # noqa: E402
 _artifacts_cache: dict[str, object] = {}
 _original_load = _svc.load_analysis_artifacts
 
-def _cached_load(artifact_dir=None, mode=None):
-    key = f"{artifact_dir}:{mode}"
+def _cached_load(artifact_dir=None, mode=None, image_analysis_model=None):
+    key = f"{artifact_dir}:{mode}:{image_analysis_model}"
     if key not in _artifacts_cache:
-        logger.info("Loading artifacts for mode=%s (first request — will be cached)", mode)
-        _artifacts_cache[key] = _original_load(artifact_dir, mode)
+        logger.info("Loading artifacts for mode=%s image_model=%s (first request — will be cached)", mode, image_analysis_model)
+        _artifacts_cache[key] = _original_load(artifact_dir, mode, image_analysis_model)
     return _artifacts_cache[key]
 
 _svc.load_analysis_artifacts = _cached_load

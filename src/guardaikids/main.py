@@ -7,8 +7,8 @@ import json
 import os
 from pathlib import Path
 
-from guardaikids.config import AGE_GROUPS, IMAGE_ANALYSIS_MODEL, MODE, XAI_METHOD, default_data_dir
-from guardaikids.service import analyze_youtube_url, resolve_artifact_dir, train_and_save_system
+from guardaikids.config import IMAGE_ANALYSIS_MODEL, MODE, XAI_METHOD, default_data_dir
+from guardaikids.service import analyze_youtube_url, train_and_save_system
 
 VALID_MODES = ("text", "image", "multimodal")
 VALID_IMAGE_MODELS = ("clip", "clip_ocr", "clip_nsfw_violence")
@@ -81,8 +81,9 @@ def print_training_summary(results: dict[str, object], artifact_dir: Path) -> No
     print("Validation size:", len(results["val_df"]))
     print(results["default_summary"]["classification_report"])
     print("Policy metrics:")
-    for age_group, metrics in results["policy_metrics"].items():
-        print(f"  {age_group}: {metrics}")
+    for metric, value in results["policy_metrics"].items():
+        print(f"  {metric}: {value:.3f}")
+    print(f"Protection score: {results['protection_metrics']:.3f}")
 
 
 def print_analysis_summary(result: dict[str, object]) -> None:
@@ -90,11 +91,12 @@ def print_analysis_summary(result: dict[str, object]) -> None:
     print("Video title:", metadata["title"])
     print("Channel:", metadata["channel"])
     print("Published at:", metadata["published_at"])
+    print("Mode:", result["analysis_mode"])
     print("Model scores:", result["model_scores"])
-    for age_group in AGE_GROUPS:
-        recommendation = result["recommendations"][age_group]
-        print(f"{age_group}: {recommendation['decision']}")
-        print(f"  Explanation: {recommendation['explanation']}")
+    print(f"Decision: {result['decision']}")
+    if result["categories"]:
+        print("Harm categories:", ", ".join(result["categories"]))
+    print(f"Explanation:\n{result['explanation']}")
 
 
 def main() -> None:
@@ -122,7 +124,7 @@ def main() -> None:
     result = analyze_youtube_url(
         args.url,
         api_key,
-        args.artifact_dir or resolve_artifact_dir(mode=args.mode),
+        args.artifact_dir,
         mode=args.mode,
         image_analysis_model=args.image_analysis_model,
         xai_method=args.xai_method,
